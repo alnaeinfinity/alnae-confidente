@@ -89,37 +89,92 @@ const config = {
   demoMode: false
 };
 app.get("/", (req, res) => {
-  res.send(
-    pageTemplate(
-      "Alnaé Confidente",
-      `
-      <div class="brand">ALNAÉ Infinity</div>
-      <h1 class="title">Confidente</h1>
-      <p class="muted">Serveur Alnaé Confidente actif 💎</p>
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+      <title>Alnaé Confidente</title>
 
-      <div class="card">
-        <h2>Démarrage</h2>
-        <p>Cette version est une base de travail. Elle permet déjà :</p>
-        <ul>
-          <li>la vérification d'une commande en mode démo</li>
-          <li>la création de slots de messages</li>
-          <li>un lien unique par message</li>
-          <li>une page de révélation protégée par code PIN</li>
-        </ul>
+      <style>
+        body {
+          margin: 0;
+          font-family: Arial, sans-serif;
+          background: #f5efe6;
+          color: #2c2c2c;
+          text-align: center;
+        }
 
-        <a class="btn" href="/confidente">Ouvrir Confidente</a>
+        .container {
+          padding: 60px 20px;
+        }
+
+        h1 {
+          font-size: 32px;
+          margin-bottom: 10px;
+        }
+
+        p {
+          font-size: 16px;
+          color: #666;
+        }
+
+        .card {
+          background: white;
+          padding: 30px;
+          margin: 30px auto;
+          max-width: 500px;
+          border-radius: 10px;
+          box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+        }
+
+        .btn {
+          display: inline-block;
+          margin-top: 20px;
+          padding: 12px 25px;
+          background: #2c2c2c;
+          color: white;
+          text-decoration: none;
+          border-radius: 5px;
+        }
+
+        .brand {
+          font-size: 12px;
+          letter-spacing: 2px;
+          color: #a38b6b;
+        }
+      </style>
+    </head>
+
+    <body>
+      <div class="container">
+
+        <div class="brand">ALNAÉ INFINITY</div>
+
+        <h1>Confidente</h1>
+
+        <p>Déposez un message sécurisé lié à votre commande.</p>
+
+        <div class="card">
+          <h2>Démarrage</h2>
+
+          <p>Bienvenue dans votre espace confident.</p>
+
+          <ul style="text-align:left; display:inline-block;">
+            <li>Vérification d'une commande</li>
+            <li>Création d’un message unique</li>
+            <li>Lien sécurisé</li>
+            <li>Accès privé avec code</li>
+          </ul>
+
+          <a class="btn" href="/confidente">Ouvrir Confidente</a>
+        </div>
+
       </div>
-
-      <div class="card">
-        <h3>Commande de test</h3>
-        <p><strong>Numéro :</strong> CMD-2024-00142</p>
-        <p><strong>Email :</strong> aline@test.fr</p>
-        <p><strong>Prénom :</strong> Aline</p>
-        <p><strong>Nom :</strong> Martin</p>
-      </div>
-      `
-    )
-  );
+    </body>
+    </html>
+  `);
 });
 
 app.get("/health", (req, res) => {
