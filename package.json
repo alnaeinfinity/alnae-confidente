@@ -1,0 +1,12 @@
+{
+  "name": "alnae-confidente",
+  "version": "1.0.0",
+  "description": "systeme de messages securises",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
