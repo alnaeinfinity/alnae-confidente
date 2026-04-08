@@ -3184,6 +3184,31 @@ header {
   </div>
 
   <!-- FORMULAIRE -->
+  <!-- CHOIX DU BIJOU / SLOT -->
+<div class="page" id="page-slots">
+  <div class="steps">
+    <div class="step-dot"></div>
+    <div class="step-dot active"></div>
+    <div class="step-dot"></div>
+    <div class="step-dot"></div>
+  </div>
+
+  <div class="card">
+    <h2 class="card-title">Choisissez le bijou à personnaliser</h2>
+    <p class="card-subtitle">Étape 2 sur 4 — Sélection du message à préparer</p>
+
+    <div class="info-row">
+      <span>◈</span>
+      <span>
+        Cette commande contient plusieurs bijoux Confidente. Sélectionnez celui que vous souhaitez remplir maintenant.
+      </span>
+    </div>
+
+    <div id="slots-list" style="display:flex;flex-direction:column;gap:.8rem;margin-top:1.2rem;"></div>
+
+    <button class="btn" id="btn-slots-back" type="button" style="margin-top:1rem;">← Retour</button>
+  </div>
+</div>
   <div class="page" id="page-form">
     <div class="steps"><div class="step-dot"></div><div class="step-dot"></div><div class="step-dot active"></div><div class="step-dot"></div></div>
     <div class="card">
