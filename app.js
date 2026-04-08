@@ -4195,7 +4195,42 @@ header {
         };
       }
       setText('verified-name-display',state.verification.displayName+' - '+state.verification.orderLabel);
-      showPage('page-pin');
+      // 🔥 GESTION DES SLOTS MULTIPLES
+if (order.slots && order.slots.length > 1) {
+
+  // stocker les slots
+  state.slots = order.slots;
+
+  // afficher la liste
+  const container = g('slots-list');
+  container.innerHTML = '';
+
+  order.slots.forEach(slot => {
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+    btn.textContent = slot.jewelCode;
+
+    btn.onclick = () => {
+      state.selectedSlot = slot.jewelCode;
+      state.verification.bijouCode = slot.jewelCode;
+      showPage('page-form');
+    };
+
+    container.appendChild(btn);
+  });
+
+  showPage('page-slots');
+
+} else {
+
+  // 1 seul bijou → comportement normal
+  const singleSlot = order.slots?.[0];
+  if (singleSlot) {
+    state.verification.bijouCode = singleSlot.jewelCode;
+  }
+
+  showPage('page-pin');
+}
     } catch(error) {
       const el=g('auth-error');
       if(el){el.textContent=error.message||'Informations incorrectes.';el.classList.add('show');}
