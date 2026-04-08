@@ -36,9 +36,17 @@ function isConfidenreProd(title) {
 }
 function countConfidente(lineItems) {
   let n = 0;
-  for (const item of lineItems) {
-    if (isConfidenreProd(item.title || item.name || "")) n += item.quantity || 1;
+
+  for (const article of lineItems) {
+    // On récupère les tags du produit (Shopify)
+    const tags = (article.product_tags || article.tags || "").toLowerCase();
+
+    // Vérifie si le tag "confidente" est présent
+    if (tags.includes("confidente")) {
+      n += article.quantity || 1;
+    }
   }
+
   return n;
 }
 function genToken() { return crypto.randomBytes(20).toString("hex"); }
