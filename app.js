@@ -4497,9 +4497,19 @@ app.post("/verify-order", (req, res) => {
   const key = normalize(String(orderNumber).replace("#",""));
   const order = orders.get(key);
   if (order && normalize(order.firstName)===normalize(firstName) && normalize(order.lastName)===normalize(lastName)) {
-    const slot = [...slots.values()].find(s => normalize(s.orderNumber.replace("#",""))===key && s.status==="available");
-    return res.json({ sessionToken:genToken(), orderNumber:order.orderNumber, orderLabel:order.orderNumber, email:order.email||email||"", bijouCode:slot?.jewelCode||genJewelCode(order.orderNumber,1) });
-  }
+    const availableSlots = [...slots.values()].filter(
+  s => normalize(s.orderNumber.replace("#","")) === key && s.status === "available"
+);
+
+return res.json({
+  sessionToken: genToken(),
+  orderNumber: order.orderNumber,
+  orderLabel: order.orderNumber,
+  email: order.email || email || "",
+  slots: availableSlots.map(s => ({
+    jewelCode: s.jewelCode
+  }))
+});
   const TEST = [
     { orderNumber:"CMD-2024-00142", firstName:"aline",  lastName:"martin",  bijouCode:"CONF-2024-001" },
     { orderNumber:"CMD-2024-00200", firstName:"marie",  lastName:"dupont",  bijouCode:"CONF-2024-002" },
