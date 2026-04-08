@@ -1185,6 +1185,7 @@ header {
         <div id="carte-qr-mini" style="text-align:right;margin-top:.5rem;"></div>
       </div>
       <button class="btn btn-gold" id="btn-dl-confirm" type="button">Télécharger la confirmation complète</button>
+      <button class="btn btn-gold" id="btn-print-card" type="button" style="margin-top:.5rem;">🖨️ Imprimer la carte cadeau</button>
       <button class="btn" id="btn-go-reveal" type="button" style="margin-top:.5rem;">Aperçu du message final →</button>
     </div>
   </div>
