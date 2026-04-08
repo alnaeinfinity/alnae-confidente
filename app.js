@@ -4493,65 +4493,177 @@ header {
 
 app.post("/verify-order", (req, res) => {
   const { orderNumber, firstName, lastName, email } = req.body;
-  if (!orderNumber || !firstName || !lastName) return res.status(400).json({ message: "Champs manquants." });
+
+  if (!orderNumber || !firstName || !lastName) {
+    return res.status(400).json({ message: "Champs manquants." });
+  }
+
   const key = normalize(String(orderNumber).replace("#",""));
   const order = orders.get(key);
-  if (order && normalize(order.firstName)===normalize(firstName) && normalize(order.lastName)===normalize(lastName)) {
-    const availableSlots = [...slots.values()].filter(
-  s => normalize(s.orderNumber.replace("#","")) === key && s.status === "available"
-);
 
-return res.json({
-  sessionToken: genToken(),
-  orderNumber: order.orderNumber,
-  orderLabel: order.orderNumber,
-  email: order.email || email || "",
-  slots: availableSlots.map(s => ({
-    jewelCode: s.jewelCode
-  }))
-});
+  if (
+    order &&
+    normalize(order.firstName) === normalize(firstName) &&
+    normalize(order.lastName) === normalize(lastName)
+  ) {
+    const availableSlots = [...slots.values()].filter(
+      s =>
+        normalize(s.orderNumber.replace("#","")) === key &&
+        s.status === "available"
+    );
+
+    return res.json({
+      sessionToken: genToken(),
+      orderNumber: order.orderNumber,
+      orderLabel: order.orderNumber,
+      email: order.email || email || "",
+      slots: availableSlots.map(s => ({
+        jewelCode: s.jewelCode
+      }))
+    });
+  }
+
   const TEST = [
-    { orderNumber:"CMD-2024-00142", firstName:"aline",  lastName:"martin",  bijouCode:"CONF-2024-001" },
-    { orderNumber:"CMD-2024-00200", firstName:"marie",  lastName:"dupont",  bijouCode:"CONF-2024-002" },
-    { orderNumber:"CMD-2024-00333", firstName:"sophie", lastName:"leroy",   bijouCode:"CONF-2024-003" }
+    { orderNumber: "CMD-2024-00142", firstName: "aline",  lastName: "martin", bijouCode: "CONF-2024-001" },
+    { orderNumber: "CMD-2024-00200", firstName: "marie",  lastName: "dupont", bijouCode: "CONF-2024-002" },
+    { orderNumber: "CMD-2024-00333", firstName: "sophie", lastName: "leroy",  bijouCode: "CONF-2024-003" }
   ];
-  const test = TEST.find(t => normalize(t.orderNumber.replace("#",""))===key && normalize(t.firstName)===normalize(firstName) && normalize(t.lastName)===normalize(lastName));
-  if (test) return res.json({ sessionToken:genToken(), orderNumber:test.orderNumber, orderLabel:test.orderNumber, email:email||"", bijouCode:test.bijouCode });
-  return res.status(404).json({ message: "Commande introuvable. Vérifiez votre numéro de commande, prénom et nom." });
+
+  const test = TEST.find(
+    t =>
+      normalize(t.orderNumber.replace("#","")) === key &&
+      normalize(t.firstName) === normalize(firstName) &&
+      normalize(t.lastName) === normalize(lastName)
+  );
+
+  if (test) {
+    return res.json({
+      sessionToken: genToken(),
+      orderNumber: test.orderNumber,
+      orderLabel: test.orderNumber,
+      email: email || "",
+      slots: [{ jewelCode: test.bijouCode }]
+    });
+  }
+
+  return res.status(404).json({
+    message: "Commande introuvable. Vérifiez votre numéro de commande, prénom et nom."
+  });
 });
 
 app.post("/preview-message", (req, res) => {
   const { sessionToken, recipientName } = req.body;
-  if (!sessionToken || !recipientName) return res.status(400).json({ message: "Données manquantes." });
-  return res.json({ previewToken:genToken(), recipientName, occasion:req.body.occasion||"", personalMessage:req.body.personalMessage||null, etymologyText:null, motivationText:null, senderLine:"— De la part de "+(req.body.senderFirstName||"") });
+
+  if (!sessionToken || !recipientName) {
+    return res.status(400).json({ message: "Données manquantes." });
+  }
+
+  return res.json({
+    previewToken: genToken(),
+    recipientName,
+    occasion: req.body.occasion || "",
+    personalMessage: req.body.personalMessage || null,
+    etymologyText: null,
+    motivationText: null,
+    senderLine: "— De la part de " + (req.body.senderFirstName || "")
+  });
 });
 
 app.post("/seal-message", (req, res) => {
-  const { sessionToken, pin, jewelCode, recipientName, occasion, personalMessage, etymologyText, motivationText, senderLine, impressionRequested } = req.body;
-  if (!sessionToken || !pin || !jewelCode) return res.status(400).json({ message: "Données manquantes." });
-  const slot = [...slots.values()].find(s => s.jewelCode===jewelCode);
-  if (slot) { slot.status="sealed"; slot.sealedAt=new Date().toISOString(); }
-  messages.set(jewelCode, { jewelCode, pin, recipientName, occasion:occasion||null, personalMessage:personalMessage||null, etymologyText:etymologyText||null, motivationText:motivationText||null, senderLine:senderLine||"— ALNAÉ Confidente", impressionRequested:impressionRequested||false, createdAt:new Date().toISOString() });
+  const {
+    sessionToken,
+    pin,
+    jewelCode,
+    recipientName,
+    occasion,
+    personalMessage,
+    etymologyText,
+    motivationText,
+    senderLine,
+    impressionRequested
+  } = req.body;
+
+  if (!sessionToken || !pin || !jewelCode) {
+    return res.status(400).json({ message: "Données manquantes." });
+  }
+
+  const slot = [...slots.values()].find(s => s.jewelCode === jewelCode);
+
+  if (slot) {
+    slot.status = "sealed";
+    slot.sealedAt = new Date().toISOString();
+  }
+
+  messages.set(jewelCode, {
+    jewelCode,
+    pin,
+    recipientName,
+    occasion: occasion || null,
+    personalMessage: personalMessage || null,
+    etymologyText: etymologyText || null,
+    motivationText: motivationText || null,
+    senderLine: senderLine || "— ALNAÉ Confidente",
+    impressionRequested: impressionRequested || false,
+    createdAt: new Date().toISOString()
+  });
+
   console.log("[SEAL]", jewelCode, "—", recipientName);
-  return res.json({ jewelCode, revealUrl:STOREFRONT_URL+"?code="+jewelCode, impressionRequested:impressionRequested||false, qrSvg:null, qrMiniSvg:null });
+
+  return res.json({
+    jewelCode,
+    revealUrl: STOREFRONT_URL + "?code=" + jewelCode,
+    impressionRequested: impressionRequested || false,
+    qrSvg: null,
+    qrMiniSvg: null
+  });
 });
 
 app.post("/start-reveal", (req, res) => {
   const { jewelCode } = req.body;
-  if (!jewelCode) return res.status(400).json({ message: "Code manquant." });
+
+  if (!jewelCode) {
+    return res.status(400).json({ message: "Code manquant." });
+  }
+
   const code = String(jewelCode).toUpperCase();
-  if (!messages.has(code)) return res.status(404).json({ message: "Code introuvable. Vérifiez la carte jointe au bijou." });
+
+  if (!messages.has(code)) {
+    return res.status(404).json({
+      message: "Code introuvable. Vérifiez la carte jointe au bijou."
+    });
+  }
+
   return res.json({ jewelCode: code });
 });
 
 app.post("/reveal-message", (req, res) => {
   const { jewelCode, pin } = req.body;
-  if (!jewelCode || !pin) return res.status(400).json({ message: "Données manquantes." });
+
+  if (!jewelCode || !pin) {
+    return res.status(400).json({ message: "Données manquantes." });
+  }
+
   const code = String(jewelCode).toUpperCase();
-  const msg  = messages.get(code);
-  if (!msg) return res.status(404).json({ message: "Message introuvable." });
-  if (msg.pin !== pin) return res.status(401).json({ message: "Code incorrect. Vérifiez la carte jointe au bijou." });
-  return res.json({ recipientName:msg.recipientName, occasion:msg.occasion, etymologyText:msg.etymologyText, personalMessage:msg.personalMessage, motivationText:msg.motivationText, senderLine:msg.senderLine });
+  const msg = messages.get(code);
+
+  if (!msg) {
+    return res.status(404).json({ message: "Message introuvable." });
+  }
+
+  if (msg.pin !== pin) {
+    return res.status(401).json({
+      message: "Code incorrect. Vérifiez la carte jointe au bijou."
+    });
+  }
+
+  return res.json({
+    recipientName: msg.recipientName,
+    occasion: msg.occasion,
+    etymologyText: msg.etymologyText,
+    personalMessage: msg.personalMessage,
+    motivationText: msg.motivationText,
+    senderLine: msg.senderLine
+  });
 });
 
 app.listen(port, () => {
