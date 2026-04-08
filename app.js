@@ -4,25 +4,16 @@ const https    = require("https");
 const app      = express();
 const port     = process.env.PORT || 10000;
 
-// ── CONFIGURATION ─────────────────────────────────────────────────
 const WEBHOOK_SECRET  = "b3ec7181efef92e88e640c39153a881249fab46192dcfb71c4ca92cf6d761cec";
-const SHOPIFY_STORE   = process.env.SHOPIFY_STORE   || "";   // ex: alnaeinfinity.myshopify.com
-const SHOPIFY_TOKEN   = process.env.SHOPIFY_TOKEN   || "";   // Admin API token
-const SENDGRID_KEY    = process.env.SENDGRID_KEY    || "";   // optionnel : emails auto
+const SENDGRID_KEY    = process.env.SENDGRID_KEY    || "";
 const ALNAE_EMAIL     = process.env.ALNAE_EMAIL     || "alnae.infinity@gmail.com";
 const BASE_URL        = process.env.BASE_URL        || "https://alnae-confidente-1.onrender.com";
 const STOREFRONT_URL  = "https://www.alnaeinfinity.com/pages/confidente";
-
-// Nom(s) du produit Confidente sur Shopify — mets ici le nom exact du produit
 const CONFIDENTE_KEYWORDS = ["confidente", "confiant"];
 
-// ── MIDDLEWARES ───────────────────────────────────────────────────
-// IMPORTANT: raw body nécessaire pour vérifier la signature Shopify
 app.use("/webhook", express.raw({ type: "application/json" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// CORS
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -31,232 +22,121 @@ app.use((req, res, next) => {
   next();
 });
 
-// ── STOCKAGE EN MÉMOIRE ───────────────────────────────────────────
-// orders  : commandes reçues de Shopify
-// slots   : formulaires générés (1 par bijou Confidente)
-// messages: messages scellés par les clientes
 const orders   = new Map();
 const slots    = new Map();
 const messages = new Map();
 
-// ── UTILITAIRES ───────────────────────────────────────────────────
 function normalize(s) {
   return String(s || "").trim().toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
-
-function isConfidenreProduct(title) {
+function isConfidenreProd(title) {
   const t = normalize(title);
   return CONFIDENTE_KEYWORDS.some(k => t.includes(k));
 }
-
-function countConfidenreItems(lineItems) {
-  let count = 0;
+function countConfidente(lineItems) {
+  let n = 0;
   for (const item of lineItems) {
-    if (isConfidenreProduct(item.title || item.name || "")) {
-      count += item.quantity || 1;
-    }
+    if (isConfidenreProd(item.title || item.name || "")) n += item.quantity || 1;
   }
-  return count;
+  return n;
+}
+function genToken() { return crypto.randomBytes(20).toString("hex"); }
+function genJewelCode(orderNumber, i) {
+  return ("CONF-" + String(orderNumber).replace(/[^a-zA-Z0-9]/g,"") + "-" + String(i).padStart(2,"0")).toUpperCase();
 }
 
-function generateToken() {
-  return crypto.randomBytes(20).toString("hex");
-}
-
-function generateJewelCode(orderNumber, index) {
-  const clean = String(orderNumber).replace(/[^a-zA-Z0-9]/g, "");
-  return ("CONF-" + clean + "-" + String(index).padStart(2, "0")).toUpperCase();
-}
-
-// ── ENVOI EMAIL (simple via API HTTP) ─────────────────────────────
-// Version sans dépendance externe — utilise l'API SendGrid si configurée
-// Sinon log seulement (tu configureras l'email plus tard)
-function sendEmail(to, subject, htmlBody) {
+function sendEmail(to, subject, html) {
   if (!SENDGRID_KEY) {
-    console.log("[EMAIL] Clé SendGrid non configurée — log seulement");
-    console.log("[EMAIL] Destinataire:", to);
-    console.log("[EMAIL] Sujet:", subject);
+    console.log("[EMAIL] Non configuré — destinataire:", to);
     return Promise.resolve(false);
   }
-
   return new Promise((resolve) => {
     const payload = JSON.stringify({
       personalizations: [{ to: [{ email: to }] }],
       from: { email: ALNAE_EMAIL, name: "ALNAÉ Infinity" },
-      subject: subject,
-      content: [{ type: "text/html", value: htmlBody }]
+      subject, content: [{ type: "text/html", value: html }]
     });
-
-    const options = {
-      hostname: "api.sendgrid.com",
-      path: "/v3/mail/send",
-      method: "POST",
-      headers: {
-        "Authorization": "Bearer " + SENDGRID_KEY,
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(payload)
-      }
+    const opts = {
+      hostname: "api.sendgrid.com", path: "/v3/mail/send", method: "POST",
+      headers: { "Authorization": "Bearer " + SENDGRID_KEY, "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) }
     };
-
-    const req = https.request(options, (res) => {
-      resolve(res.statusCode === 202);
-    });
-    req.on("error", () => resolve(false));
-    req.write(payload);
-    req.end();
+    const r = https.request(opts, res => resolve(res.statusCode === 202));
+    r.on("error", () => resolve(false));
+    r.write(payload); r.end();
   });
 }
 
 function buildEmailHTML(order, orderSlots) {
   const slotsHtml = orderSlots.map((slot, i) => `
-    <div style="background:#F8F4EE;border:1px solid #C8BAA0;padding:20px;margin:10px 0;border-radius:4px;">
+    <div style="background:#F8F4EE;border:1px solid #C8BAA0;padding:20px;margin:10px 0;">
       <h3 style="color:#1C1408;font-family:Georgia,serif;margin:0 0 8px;">Bijou ${i + 1}</h3>
-      <p style="color:#5A4A2A;font-size:14px;margin:4px 0;">
-        <strong>Votre lien sécurisé :</strong>
-      </p>
       <a href="${BASE_URL}/formulaire/${slot.accessToken}"
-         style="display:inline-block;background:#1C1408;color:#F0EBE0;padding:10px 20px;text-decoration:none;font-family:Arial,sans-serif;font-size:13px;margin:8px 0;">
+         style="display:inline-block;background:#1C1408;color:#F0EBE0;padding:10px 20px;text-decoration:none;margin:8px 0;">
         Déposer le message du bijou ${i + 1}
       </a>
-      <p style="color:#8A7A60;font-size:12px;margin:8px 0 0;">
-        Ce lien est personnel et ne peut être utilisé qu'une seule fois.
-      </p>
+      <p style="color:#8A7A60;font-size:12px;margin:8px 0 0;">Lien personnel — usage unique.</p>
     </div>
   `).join("");
-
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head><meta charset="UTF-8"></head>
-    <body style="font-family:Arial,sans-serif;background:#F2EDE3;padding:40px;">
-      <div style="max-width:560px;margin:0 auto;background:white;border:1px solid #C8BAA0;padding:40px;">
-        <div style="text-align:center;margin-bottom:24px;">
-          <div style="font-size:11px;letter-spacing:4px;text-transform:uppercase;color:#8B6914;">ALNAÉ Infinity</div>
-          <h1 style="font-family:Georgia,serif;font-size:26px;font-weight:400;font-style:italic;color:#1C1408;margin:8px 0;">Collection Confidente</h1>
-        </div>
-        <p style="color:#3A2C18;font-size:15px;line-height:1.7;">
-          Bonjour ${order.firstName},
-        </p>
-        <p style="color:#5A4A2A;font-size:14px;line-height:1.7;">
-          Merci pour votre commande <strong>${order.orderNumber}</strong>.<br>
-          Vous avez commandé <strong>${orderSlots.length} bijou(x) Confidente</strong>.<br><br>
-          Pour chaque bijou, vous pouvez déposer un message personnalisé
-          qui sera révélé au destinataire via un QR code sécurisé.
-        </p>
-        ${slotsHtml}
-        <p style="color:#8A7A60;font-size:12px;line-height:1.6;margin-top:24px;border-top:1px solid #C8BAA0;padding-top:16px;">
-          ALNAÉ Infinity — contact@alnae-infinity.fr<br>
-          <a href="https://www.alnaeinfinity.com" style="color:#8B6914;">www.alnaeinfinity.com</a>
-        </p>
-      </div>
-    </body>
-    </html>
-  `;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+  <body style="font-family:Arial,sans-serif;background:#F2EDE3;padding:40px;">
+  <div style="max-width:560px;margin:0 auto;background:white;border:1px solid #C8BAA0;padding:40px;">
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="font-size:11px;letter-spacing:4px;text-transform:uppercase;color:#8B6914;">ALNAÉ Infinity</div>
+      <h1 style="font-family:Georgia,serif;font-size:26px;font-weight:400;font-style:italic;color:#1C1408;">Collection Confidente</h1>
+    </div>
+    <p style="color:#3A2C18;font-size:15px;">Bonjour ${order.firstName},</p>
+    <p style="color:#5A4A2A;font-size:14px;line-height:1.7;">
+      Merci pour votre commande <strong>${order.orderNumber}</strong>.<br>
+      Vous avez commandé <strong>${orderSlots.length} bijou(x) Confidente</strong>.
+    </p>
+    ${slotsHtml}
+    <p style="color:#8A7A60;font-size:12px;margin-top:24px;border-top:1px solid #C8BAA0;padding-top:16px;">
+      ALNAÉ Infinity — <a href="https://www.alnaeinfinity.com" style="color:#8B6914;">www.alnaeinfinity.com</a>
+    </p>
+  </div></body></html>`;
 }
 
-// ── VÉRIFICATION SIGNATURE SHOPIFY ────────────────────────────────
-function verifyShopifyWebhook(req) {
-  const hmac      = req.headers["x-shopify-hmac-sha256"];
-  const rawBody   = req.body; // Buffer (grâce à express.raw)
-  if (!hmac || !rawBody) return false;
-  const digest = crypto
-    .createHmac("sha256", WEBHOOK_SECRET)
-    .update(rawBody)
-    .digest("base64");
-  return crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(hmac));
+function verifyShopify(req) {
+  const hmac = req.headers["x-shopify-hmac-sha256"];
+  if (!hmac || !req.body) return false;
+  const digest = crypto.createHmac("sha256", WEBHOOK_SECRET).update(req.body).digest("base64");
+  try { return crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(hmac)); }
+  catch(_) { return false; }
 }
 
-// ── WEBHOOK SHOPIFY — NOUVELLE COMMANDE ───────────────────────────
 app.post("/webhook/shopify", async (req, res) => {
-  // 1. Vérifier la signature
-  if (!verifyShopifyWebhook(req)) {
-    console.warn("[WEBHOOK] Signature invalide — requête rejetée");
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  // 2. Parser le body
+  if (!verifyShopify(req)) { console.warn("[WEBHOOK] Signature invalide"); return res.status(401).json({ error: "Unauthorized" }); }
   let shopifyOrder;
-  try {
-    shopifyOrder = JSON.parse(req.body.toString());
-  } catch(e) {
-    return res.status(400).json({ error: "Invalid JSON" });
-  }
-
-  res.status(200).json({ ok: true }); // Shopify exige une réponse rapide
-
-  // 3. Extraire les informations
-  const orderNumber = String(shopifyOrder.order_number || shopifyOrder.name || "").replace("#", "");
+  try { shopifyOrder = JSON.parse(req.body.toString()); } catch(e) { return res.status(400).json({ error: "Invalid JSON" }); }
+  res.status(200).json({ ok: true });
+  const orderNumber = String(shopifyOrder.order_number || shopifyOrder.name || "").replace("#","");
   const email       = shopifyOrder.email || shopifyOrder.contact_email || "";
   const firstName   = shopifyOrder.billing_address?.first_name || shopifyOrder.customer?.first_name || "";
   const lastName    = shopifyOrder.billing_address?.last_name  || shopifyOrder.customer?.last_name  || "";
   const lineItems   = shopifyOrder.line_items || [];
-
-  console.log("[WEBHOOK] Commande reçue:", orderNumber, "—", firstName, lastName, "—", email);
-
-  // 4. Compter les bijoux Confidente
-  const confidenteCount = countConfidenreItems(lineItems);
-  console.log("[WEBHOOK] Bijoux Confidente:", confidenteCount);
-
-  if (confidenteCount === 0) {
-    console.log("[WEBHOOK] Aucun bijou Confidente dans cette commande — ignorée");
-    return;
-  }
-
-  // 5. Sauvegarder la commande
-  const orderKey = normalize(orderNumber);
-  orders.set(orderKey, {
-    orderNumber,
-    email,
-    firstName,
-    lastName,
-    confidenteCount,
-    rawOrder: shopifyOrder,
-    receivedAt: new Date().toISOString()
-  });
-
-  // 6. Créer les slots (1 par bijou Confidente)
+  const count       = countConfidente(lineItems);
+  console.log("[WEBHOOK] Commande:", orderNumber, firstName, lastName, "— Confidente:", count);
+  if (count === 0) return;
+  orders.set(normalize(orderNumber), { orderNumber, email, firstName, lastName, count, receivedAt: new Date().toISOString() });
   const orderSlots = [];
-  for (let i = 1; i <= confidenteCount; i++) {
-    const accessToken = generateToken();
-    const jewelCode   = generateJewelCode(orderNumber, i);
-    const slot = {
-      accessToken,
-      jewelCode,
-      orderNumber,
-      slotIndex: i,
-      status:    "available", // available → sealed
-      email,
-      firstName,
-      lastName,
-      createdAt: new Date().toISOString()
-    };
+  for (let i = 1; i <= count; i++) {
+    const accessToken = genToken();
+    const jewelCode   = genJewelCode(orderNumber, i);
+    const slot = { accessToken, jewelCode, orderNumber, slotIndex: i, status: "available", email, firstName, lastName, createdAt: new Date().toISOString() };
     slots.set(accessToken, slot);
     orderSlots.push(slot);
-    console.log("[WEBHOOK] Slot créé:", jewelCode, "— lien:", BASE_URL + "/formulaire/" + accessToken);
+    console.log("[SLOT]", jewelCode, BASE_URL + "/formulaire/" + accessToken);
   }
-
-  // 7. Envoyer l'email à la cliente
   const emailHtml = buildEmailHTML({ orderNumber, firstName }, orderSlots);
-  const emailSent = await sendEmail(
-    email,
-    "ALNAÉ Infinity — Votre message Confidente pour la commande " + orderNumber,
-    emailHtml
-  );
-
-  // 8. Envoyer copie à ALNAÉ
-  await sendEmail(
-    ALNAE_EMAIL,
-    "[ALNAE] Nouvelle commande Confidente — " + orderNumber + " (" + confidenteCount + " bijou(x))",
-    emailHtml
-  );
-
-  console.log("[WEBHOOK] Email envoyé:", emailSent, "— Commande traitée:", orderNumber);
+  const sent = await sendEmail(email, "ALNAÉ Infinity — Collection Confidente — Commande " + orderNumber, emailHtml);
+  await sendEmail(ALNAE_EMAIL, "[ALNAE] Commande Confidente " + orderNumber + " (" + count + " bijou(x))", emailHtml);
+  console.log("[EMAIL] Envoyé:", sent);
 });
 
-// ── PAGE PRINCIPALE ───────────────────────────────────────────────
+app.get("/health", (req, res) => res.json({ ok:true, orders:orders.size, slots:slots.size, messages:messages.size, uptime:Math.floor(process.uptime())+"s" }));
+
 app.get("/", (req, res) => {
-  // Si un code est passé en paramètre (?code=CONF-...), pré-remplir
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(`<!DOCTYPE html>
 <html lang="fr">
@@ -1008,6 +888,7 @@ header {
     <div class="preview-body">
       <div class="preview-warning">Voici exactement ce que verra le destinataire. Vérifiez avant de sceller.</div>
       <div class="reveal-center">
+        <div id="prev-media-block" style="display:none;margin:0 0 1.2rem;"></div>
         <span class="jewel-icon">◆</span>
         <div id="prev-occ-wrap" style="display:none"><div class="occasion-badge" id="prev-occasion"></div></div>
         <p class="recipient-name" id="prev-name"></p>
@@ -1016,7 +897,7 @@ header {
         <div class="etym-block" id="prev-etym" style="display:none"><div class="etym-label">Essence du prénom</div><p id="prev-etym-text"></p></div>
         <div class="msg-block" id="prev-msg-block" style="display:none"><p id="prev-message"></p></div>
         <div class="motiv-block" id="prev-motiv-block" style="display:none"><p id="prev-motiv-text"></p></div>
-        <div id="prev-media-block" style="display:none;margin:.9rem 0;text-align:left;"></div>
+        
         <p class="from-line" id="prev-from"></p>
         <div class="diamond-sep"><span></span></div>
         <div class="alnae-footer">ALNAÉ Infinity — Collection Confidente<br><a href="https://www.alnaeinfinity.com" target="_blank" rel="noopener">www.alnaeinfinity.com</a></div>
@@ -1029,7 +910,7 @@ header {
 
 <header>
   <div class="brand-eyebrow">ALNAÉ Infinity</div>
-  <h1 class="collection-title">Confidente</h1>
+  <h1 class="collection-title" style="cursor:pointer;" id="title-home">Confidente</h1>
   <p class="tagline">Le bijou qui porte votre voix</p>
 </header>
 
@@ -1339,15 +1220,16 @@ header {
   <!-- RÉVÉLATION -->
   <div class="page" id="page-reveal">
     <div class="card reveal-center">
+      <div id="reveal-media-block" style="display:none;margin:0 0 1.5rem;width:100%;"></div>
       <span class="jewel-icon">◆</span>
       <div id="reveal-occ-wrap" style="display:none"><div class="occasion-badge" id="reveal-occasion"></div></div>
       <p class="recipient-name" id="reveal-name"></p>
       <div class="diamond-sep"><span></span></div>
       <div class="spinner-wrap" id="reveal-loading"><div class="spinner"></div><div class="spinner-text">Chargement…</div></div>
+      
       <div class="etym-block" id="reveal-etym" style="display:none"><div class="etym-label">Essence du prénom</div><p id="reveal-etym-text"></p></div>
       <div class="msg-block" id="reveal-msg-block" style="display:none"><p id="reveal-message"></p></div>
       <div class="motiv-block" id="reveal-motiv-block" style="display:none"><p id="reveal-motiv-text"></p></div>
-      <div id="reveal-media-block" style="display:none;margin:.9rem 0;"></div>
       <p class="from-line" id="reveal-from"></p>
       <div class="diamond-sep"><span></span></div>
       <div class="alnae-footer">ALNAÉ Infinity — Collection Confidente<br><a href="https://www.alnaeinfinity.com" target="_blank" rel="noopener">www.alnaeinfinity.com</a></div>
@@ -1380,7 +1262,7 @@ header {
     alnaEmail: 'contact@alnae-infinity.fr',
 
     // URL de la page Shopify
-    storefrontPageUrl: 'https://www.alnaeinfinity.com/pages/confidente',
+    storefrontPageUrl: 'https://alnae-confidente-1.onrender.com',
 
     // Mode démo : true = pas besoin de Supabase/EmailJS pour tester
     // Passe à false une fois tes clés configurées
@@ -1464,9 +1346,220 @@ header {
     ]
   };
 
+  // ── CITATION IA SELON OCCASION + GENRE ────────────────────────────
+  async function getMotivationIA(prenom, occasion, personalMessage) {
+    const genre = detectGenre(prenom);
+    const genreLabel = genre === 'M' ? 'masculin' : 'feminin';
+    const key = prenom + '|' + (occasion||'') + '|' + genreLabel;
+    if (state.cachedEtym && state.cachedEtym['motiv_'+key]) return state.cachedEtym['motiv_'+key];
+    try {
+      const context = occasion
+        ? 'occasion: ' + occasion
+        : (personalMessage ? 'message: ' + personalMessage.substring(0,100) : 'bijou offert en cadeau');
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model:'claude-sonnet-4-20250514', max_tokens:120,
+          system:'Tu es ALNAE Infinity, marque de bijoux haut de gamme. Ecris une citation inspirante de 1-2 phrases maximum, accordee au genre ('+genreLabel+'), en lien avec le contexte donne. Termine TOUJOURS par "N oublie pas qui tu es." Pas de guillemets, pas de markdown.',
+          messages:[{role:'user', content:'Citation pour un bijou Confidente. Contexte: '+context+'. Prenom du destinataire: '+prenom+'. Genre: '+genreLabel}]
+        })
+      });
+      const d = await r.json();
+      const t = d.content?.[0]?.text?.trim();
+      if (t) {
+        if (!state.cachedEtym) state.cachedEtym = {};
+        state.cachedEtym['motiv_'+key] = t;
+        return t;
+      }
+    } catch(_) {}
+    // Fallback si IA indisponible
+    const list = CITATIONS[genre] || CITATIONS.F;
+    return list[Math.floor(Math.random()*list.length)];
+  }
+
   function getMotivation(prenom) {
     const list = CITATIONS[detectGenre(prenom)] || CITATIONS.F;
     return list[Math.floor(Math.random()*list.length)];
+  }
+
+  // Citation IA contextuelle — tient compte de l'occasion et du message
+  async function fetchContextualMotivation(prenom, occasion, personalMessage) {
+    const genre = detectGenre(prenom);
+    const gLabel = genre === 'M' ? 'masculin' : 'feminin';
+    const ctx = occasion ? 'Occasion: ' + occasion + '.' : '';
+    const msgCtx = personalMessage ? 'Contexte du message: "' + personalMessage.slice(0,120) + '"' : '';
+    try {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514', max_tokens: 120,
+          system: 'Tu es la voix poetique d ALNAE Infinity, marque de bijoux haut de gamme. Ecris UNE citation courte (2-3 phrases max) en lien avec l occasion et le bijou offert. Accorde au genre indique. Termine TOUJOURS par: N oublie pas qui tu es. Pas de guillemets, pas de markdown.',
+          messages: [{ role: 'user', content: 'Prenom: ' + prenom + '. Genre: ' + gLabel + '. ' + ctx + ' ' + msgCtx + '. Ecris la citation inspirante.' }]
+        })
+      });
+      const d = await r.json();
+      const t = d.content?.[0]?.text;
+      if (t) return t.replace(/\\*([^*]+)\\*/g,'$1').trim();
+    } catch(_) {}
+    return getMotivation(prenom);
+  }
+
+  // Suggestions IA aléatoires selon l'occasion
+  async function fetchAISuggestions(occasion, prenom) {
+    const genre = detectGenre(prenom||'');
+    const gLabel = genre === 'M' ? 'masculin' : 'feminin';
+    try {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514', max_tokens: 400,
+          system: 'Tu génères 3 textes courts (2-3 phrases chacun) pour accompagner un bijou offert. Chaque texte doit etre different, poetique, sincere. Genre: ' + gLabel + '. Reponds UNIQUEMENT en JSON valide: {"suggestions":["texte1","texte2","texte3"]}',
+          messages: [{ role: 'user', content: 'Occasion: ' + occasion + '. Génère 3 messages de bijou differents.' }]
+        })
+      });
+      const d = await r.json();
+      const t = d.content?.[0]?.text;
+      if (t) {
+        const clean = t.replace(/\\u0060{3}json|\\u0060{3}/g,'').trim();
+        const parsed = JSON.parse(clean);
+        if (parsed.suggestions && parsed.suggestions.length >= 3) return parsed.suggestions;
+      }
+    } catch(_) {}
+    return null;
+  }
+
+  // Citation IA contextuelle selon occasion + message + bijou
+  async function fetchMotivationIA(prenom, occasion, personalMessage) {
+    const genre = detectGenre(prenom);
+    const contexte = [
+      occasion ? 'Occasion: ' + occasion : '',
+      personalMessage ? 'Ton du message: ' + personalMessage.substring(0, 100) : ''
+    ].filter(Boolean).join('. ');
+    try {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514', max_tokens: 120,
+          system: 'Tu es ALNAÉ Infinity, marque de bijoux premium. Génère UNE SEULE citation inspirante courte (max 2 phrases) pour accompagner un bijou offert. La citation doit être en lien avec le contexte fourni, accordée au genre (' + (genre==='M'?'masculin':'féminin') + '), poétique et se terminer par "N\\'oublie pas qui tu es." Pas de guillemets, pas de tirets.',
+          messages:[{role:'user', content: 'Bijou offert pour: ' + prenom + '. ' + (contexte||'Occasion spéciale.')}]
+        })
+      });
+      const d = await r.json();
+      const t = d.content?.[0]?.text;
+      if (t) return t.replace(/\\*([^*]+)\\*/g,'$1').trim();
+    } catch(_) {}
+    return getMotivation(prenom);
+  }
+
+  // ── SUGGESTIONS & CITATIONS PAR IA ──────────────────────────────
+  // Cache pour ne pas rappeler l'IA deux fois pour le même thème
+  const suggestionsCache = {};
+  const citationsCache   = {};
+
+  async function fetchSuggestionsIA(occasion, recipientName) {
+    const key = (occasion + '|' + (recipientName||'')).toLowerCase();
+    if (suggestionsCache[key]) return suggestionsCache[key];
+    try {
+      const genre = detectGenre(recipientName || '');
+      const genreLabel = genre === 'M' ? 'masculin' : 'feminin';
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 600,
+          system: "Tu es expert en messages pour bijoux haut de gamme. Reponds UNIQUEMENT avec un JSON valide. Format: {\\"suggestions\\":[\\"msg1\\",\\"msg2\\",\\"msg3\\"]}. 3 messages: 2-3 phrases max, poetiques, accordees au genre. Tutoiement. Pas de markdown.",
+          messages: [{ role: 'user', content: 'Occasion: ' + occasion + '. Prenom destinataire: ' + (recipientName||'le destinataire') + ' (genre: ' + genreLabel + '). Genere 3 messages differents et inspirants pour accompagner un bijou offert pour cette occasion.' }]
+        })
+      });
+      const d = await r.json();
+      const t = d.content?.[0]?.text || '{}';
+      const parsed = JSON.parse(t.replace(/\\u0060{3}json|\\u0060{3}/g,'').trim());
+      if (parsed.suggestions && parsed.suggestions.length) {
+        suggestionsCache[key] = parsed.suggestions;
+        return parsed.suggestions;
+      }
+    } catch(_) {}
+    // Fallback statique si IA indisponible
+    return [
+      "Ce bijou porte avec lui toute la gratitude que j'ai pour toi. Tu mérites ce qu'il y a de plus beau.",
+      "Chaque fois que tu le porteras, souviens-toi que quelqu'un pense à toi avec beaucoup d'amour.",
+      "Ce moment entre nous méritait quelque chose de précieux. Comme tu l'es pour moi."
+    ];
+  }
+
+  async function fetchCitationIA(occasion, recipientName, personalMessage) {
+    const key = (occasion + '|' + (recipientName||'') + '|' + (personalMessage||'').slice(0,30)).toLowerCase();
+    if (citationsCache[key]) return citationsCache[key];
+    try {
+      const genre = detectGenre(recipientName || '');
+      const genreLabel = genre === 'M' ? 'masculin' : 'feminin';
+      const context = personalMessage
+        ? 'Message personnel: "' + personalMessage.slice(0,200) + '"'
+        : 'Occasion: ' + occasion;
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 200,
+          system: "Tu es ALNAE Infinity, marque de bijoux haut de gamme. Reponds avec un JSON. Format: {\\"citation\\":\\"...\\"} Une phrase poetique inspirante accordee au genre, en lien avec le bijou offert. Termine par: N\\'oublie pas qui tu es. Pas de markdown.",          messages: [{ role: 'user', content: context + '. Prenom: ' + (recipientName||'le destinataire') + ' (genre: ' + genreLabel + '). Bijou: collection Confidente ALNAE Infinity.' }]
+        })
+      });
+      const d = await r.json();
+      const t = d.content?.[0]?.text || '{}';
+      const parsed = JSON.parse(t.replace(/\\u0060{3}json|\\u0060{3}/g,'').trim());
+      if (parsed.citation) {
+        citationsCache[key] = parsed.citation;
+        return parsed.citation;
+      }
+    } catch(_) {}
+    return getMotivation(recipientName || '');
+  }
+
+  async function renderSuggestions(occasion, recipientName) {
+    const box  = g('suggestions-box');
+    const list = g('suggestions-list');
+    if (!box || !list) return;
+
+    // Afficher spinner pendant le chargement IA
+    box.style.display = 'block';
+    list.innerHTML = '<div style="font-size:.7rem;color:var(--text-dim);padding:.5rem;text-align:center;">Génération des suggestions...</div>';
+
+    const items = await fetchSuggestionsIA(occasion, recipientName);
+    list.innerHTML = '';
+    items.forEach(txt => {
+      const row = document.createElement('div');
+      row.className = 'sug-item';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.dataset.text = txt;
+      const sp = document.createElement('span');
+      sp.textContent = txt;
+      row.appendChild(cb); row.appendChild(sp);
+      cb.addEventListener('change', applySuggestions);
+      sp.addEventListener('click', () => { cb.checked = !cb.checked; applySuggestions(); });
+      list.appendChild(row);
+    });
+  }
+
+  function applySuggestions() {
+    const sel = Array.from(document.querySelectorAll('#suggestions-list input:checked')).map(cb => cb.dataset.text);
+    if (!sel.length) return;
+    const ta = g('message-input');
+    ta.value = sel.join('\\n\\n');
+    setText('char-count', String(ta.value.length));
+    if (!toggleOn('tog-message')) {
+      g('tog-message').checked = true;
+      g('body-message').classList.add('open');
+      g('block-message').classList.add('on');
+    }
+  }
+
+  function getMotivation(prenom) {
+    const list = CITATIONS[detectGenre(prenom)] || CITATIONS.F;
+    return list[Math.floor(Math.random() * list.length)];
   }
 
   const SUGGESTIONS = {
@@ -1475,17 +1568,17 @@ header {
       "Tu merites ce bijou, comme tu merites tout ce que la vie a de plus beau. Avec tout mon amour.",
       "Le temps passe, mais ce qui ne change pas c'est la place que tu as dans mon coeur."
     ],
-    'Amitie': [
+    'Amitié': [
       "Certaines personnes entrent dans ta vie et tu realises que tu ne peux plus imaginer sans elles. Tu es de celles-la.",
       "On dit que les vrais amis sont rares. Je suis si heureux/heureuse de t'avoir trouve(e).",
       "Ce bijou est un morceau de notre amitie. Porte-le quand tu as besoin de te sentir moins seul(e)."
     ],
-    'Diplome': [
+    'Diplôme': [
       "Tu as travaille, tu as persevere, tu y es arrive(e). Ce diplome represente tout ce que tu peux accomplir.",
       "Felicitations. Que cette reussite soit le debut de tout ce que tu as reve de construire.",
       "Je t'ai regarde(e) avancer, douter parfois, mais jamais abandonner. Je suis fier/fiere de toi."
     ],
-    'Fete des meres': [
+    'Fête des mères': [
       "Aucun bijou ne pourra exprimer tout ce que tu representes. J'espere qu'il te rappellera a quel point tu es aimee.",
       "Tu m'as appris a me lever quand je tombe, a aimer sans condition. Merci d'etre la mere/le parent que tu es.",
       "Pour celle/celui qui a tout donne sans jamais rien demander. Ce bijou est fait pour toi."
@@ -1500,7 +1593,7 @@ header {
       "Les mots ne suffisent pas. Ce bijou porte notre souvenir.",
       "La ou les photos s'effacent et les mots se perdent, ce bijou restera."
     ],
-    'Noel': [
+    'Noël': [
       "En cette periode de lumieres, j'avais envie de t'offrir quelque chose qui te ressemble. Joyeux Noel.",
       "Noel, c'est le moment que je prefere pour dire les choses qu'on n'ose pas dire. Tu comptes enormement.",
       "Ce bijou est mon cadeau mais surtout un morceau de moi que je t'offre."
@@ -1676,10 +1769,31 @@ header {
   }
 
   // ── SUGGESTIONS ───────────────────────────────────────────────────
-  function renderSuggestions(occasion) {
+  // Générer suggestions de texte via IA (aléatoires à chaque fois)
+  async function fetchSuggestionsIA(occasion) {
+    try {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514', max_tokens: 600,
+          system: 'Tu génères 3 suggestions de messages courts et sincères pour accompagner un bijou offert. Chaque suggestion fait 2-3 phrases max, style chaleureux et personnel. Réponds UNIQUEMENT avec un JSON valide: {"suggestions":["texte1","texte2","texte3"]}. Pas de markdown.',
+          messages:[{role:'user', content:'Génère 3 suggestions variées et originales pour l\\'occasion: ' + occasion + '. Elles doivent être différentes des suggestions habituelles, vraiment personnelles et touchantes.'}]
+        })
+      });
+      const d = await r.json();
+      const t = d.content?.[0]?.text;
+      if (t) {
+        const clean = t.replace(/\\u0060{3}json|\\u0060{3}/g,'').trim();
+        const parsed = JSON.parse(clean);
+        if (parsed.suggestions && parsed.suggestions.length) return parsed.suggestions;
+      }
+    } catch(_) {}
+    return null;
+  }
+
+  function renderSuggestionsFromList(items) {
     const box=g('suggestions-box'), list=g('suggestions-list');
-    const items=SUGGESTIONS[occasion];
-    if(!box||!list||!items){if(box)box.style.display='none';return;}
+    if(!box||!list||!items||!items.length){if(box)box.style.display='none';return;}
     list.innerHTML='';
     items.forEach(txt=>{
       const row=document.createElement('div'); row.className='sug-item';
@@ -1691,6 +1805,23 @@ header {
       list.appendChild(row);
     });
     box.style.display='block';
+  }
+
+  function renderSuggestions(occasion) {
+    const box=g('suggestions-box'), list=g('suggestions-list');
+    if(!box||!list) return;
+    const prenom = g('recipient-name-input')?.value?.trim() || '';
+    // Afficher les suggestions statiques immédiatement
+    const fallback = SUGGESTIONS[occasion];
+    if(fallback) renderSuggestionsFromList(fallback);
+    else { box.style.display='none'; }
+    // Puis charger des suggestions IA fraîches en arrière-plan
+    if(occasion && occasion !== 'Autre') {
+      list.innerHTML += '<div style="font-size:.62rem;color:var(--text-dim);padding:.4rem 0;font-style:italic;text-align:right;">✦ Génération de nouvelles suggestions…</div>';
+      fetchAISuggestions(occasion, prenom).then(aiSugs => {
+        if(aiSugs) renderSuggestionsFromList(aiSugs);
+      });
+    }
   }
 
   function applySuggestions() {
@@ -1757,13 +1888,38 @@ header {
     const block=g('reveal-media-block');
     if(!block||!files||!files.length){if(block)block.style.display='none';return;}
     block.style.display='block';
-    block.innerHTML='<div style="font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.6rem;text-align:left;">Medias joints</div>';
+    block.innerHTML='';
     files.forEach(f=>{
       const url=f._dataUrl||(f instanceof File?URL.createObjectURL(f):null);
       if(!url)return;
-      if(f.type.startsWith('image')){const img=document.createElement('img');img.src=url;img.style.cssText='max-width:100%;max-height:260px;object-fit:contain;border:1px solid var(--obsidian-border);display:block;margin:.4rem auto;';block.appendChild(img);}
-      else{const d=document.createElement('div');d.style.cssText='padding:.5rem;background:var(--obsidian-soft);border:1px solid var(--obsidian-border);margin:.3rem 0;font-size:.7rem;';d.textContent=getMediaIcon(f.type)+': '+f.name;block.appendChild(d);}
+      const wrap=document.createElement('div');
+      wrap.style.cssText='width:100%;margin-bottom:1rem;text-align:center;';
+      if(f.type.startsWith('image')){
+        const img=document.createElement('img');
+        img.src=url;
+        img.style.cssText='max-width:100%;max-height:320px;object-fit:contain;display:block;margin:0 auto;border:1px solid var(--obsidian-border);';
+        wrap.appendChild(img);
+      } else if(f.type.startsWith('video')){
+        const vid=document.createElement('video');
+        vid.src=url; vid.controls=true;
+        vid.style.cssText='max-width:100%;max-height:280px;display:block;margin:0 auto;border:1px solid var(--obsidian-border);';
+        wrap.appendChild(vid);
+      } else if(f.type.startsWith('audio')){
+        const lbl=document.createElement('div');
+        lbl.style.cssText='font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.5rem;';
+        lbl.textContent='Message vocal';
+        wrap.appendChild(lbl);
+        const au=document.createElement('audio');
+        au.src=url; au.controls=true;
+        au.style.cssText='width:100%;opacity:.85;';
+        wrap.appendChild(au);
+      }
+      block.appendChild(wrap);
     });
+    // Séparateur après les médias
+    const sep=document.createElement('div');
+    sep.className='diamond-sep'; sep.innerHTML='<span></span>';
+    block.appendChild(sep);
   }
 
   // ── HTML TÉLÉCHARGEABLE ───────────────────────────────────────────
@@ -1886,7 +2042,7 @@ header {
     try {
       let etymologyText=null,motivationText=null;
       if(hasEtym)etymologyText=await fetchEtymIA(recipientName);
-      if(hasMotiv)motivationText=getMotivation(recipientName);
+      if(hasMotiv)motivationText=await fetchMotivationIA(recipientName, occasion, hasMsg?message:null);
       state.preview={
         previewToken:'PREV_'+Date.now(), recipientName, occasion,
         etymologyText, personalMessage:hasMsg?message:null,
@@ -2084,7 +2240,7 @@ header {
         state.currentOccasion=pill.dataset.occasion||'';
         setErr('err-occasion',false);
         if(g('autre-field'))g('autre-field').style.display=state.currentOccasion==='Autre'?'block':'none';
-        renderSuggestions(state.currentOccasion);
+        renderSuggestions(state.currentOccasion, g('recipient-name-input')?.value?.trim() || '');
       });
     });
 
@@ -2093,7 +2249,32 @@ header {
     });
 
     g('message-input')?.addEventListener('input',function(){setText('char-count',String(this.value.length));});
-    g('btn-accueil-deposer')?.addEventListener('click',function(){showPage('page-auth');});
+    // Onglets navigation
+    g('tab-deposer')?.addEventListener('click', function() {
+      g('tab-deposer').classList.add('active');
+      g('tab-decouvrir').classList.remove('active');
+      if (state.messageRecord) showPage('page-success');
+      else if (state.verification?.sessionToken) showPage('page-form');
+      else showPage('page-accueil');
+    });
+    g('tab-decouvrir')?.addEventListener('click', function() {
+      g('tab-decouvrir').classList.add('active');
+      g('tab-deposer').classList.remove('active');
+      showPage('page-decouvrir');
+    });
+    g('btn-home-title')?.addEventListener('click', function() { showPage('page-accueil'); });
+    g('logo-home')?.addEventListener('click',function(){showPage('page-accueil');});
+    // Titre cliquable → accueil
+    g('btn-home-title')?.addEventListener('click', function() {
+      g('tab-deposer').classList.add('active');
+      g('tab-decouvrir').classList.remove('active');
+      showPage('page-accueil');
+    });
+    g('btn-accueil-deposer')?.addEventListener('click',function(){
+      g('tab-deposer').classList.add('active');
+      g('tab-decouvrir').classList.remove('active');
+      showPage('page-auth');
+    });
     g('btn-accueil-decouvrir')?.addEventListener('click',function(){showPage('page-decouvrir');});
     g('btn-verify')?.addEventListener('click',verifyOrder);
     g('btn-pin-next')?.addEventListener('click',validatePinStep);
@@ -2131,32 +2312,10 @@ header {
 </html>`);
 });
 
-// ── FORMULAIRE PAR LIEN SÉCURISÉ ─────────────────────────────────
-// La cliente reçoit ce lien par email — /formulaire/:accessToken
 app.get("/formulaire/:token", (req, res) => {
   const slot = slots.get(req.params.token);
-
-  if (!slot) {
-    return res.status(404).send(`
-      <html><body style="font-family:Georgia,serif;background:#F2EDE3;text-align:center;padding:80px;">
-        <h2 style="color:#C0392B;">Lien introuvable</h2>
-        <p>Ce lien est invalide ou a déjà été utilisé.</p>
-        <a href="https://www.alnaeinfinity.com" style="color:#8B6914;">Retour à la boutique</a>
-      </body></html>
-    `);
-  }
-
-  if (slot.status === "sealed") {
-    return res.send(`
-      <html><body style="font-family:Georgia,serif;background:#F2EDE3;text-align:center;padding:80px;">
-        <h2 style="color:#1C1408;">Message déjà déposé</h2>
-        <p style="color:#5A4A2A;">Vous avez déjà créé le message pour ce bijou.</p>
-        <a href="/reveal/${slot.jewelCode}" style="color:#8B6914;">Voir le lien de révélation</a>
-      </body></html>
-    `);
-  }
-
-  // Servir le formulaire avec les infos pré-remplies
+  if (!slot) return res.status(404).send(`<!DOCTYPE html><html><body style="font-family:Georgia,serif;background:#F2EDE3;text-align:center;padding:80px;"><h2 style="color:#C0392B;">Lien introuvable</h2><p>Ce lien est invalide ou a expiré.</p></body></html>`);
+  if (slot.status === "sealed") return res.send(`<!DOCTYPE html><html><body style="font-family:Georgia,serif;background:#F2EDE3;text-align:center;padding:80px;"><h2>Message déjà déposé</h2></body></html>`);
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(`<!DOCTYPE html>
 <html lang="fr">
@@ -2908,6 +3067,7 @@ header {
     <div class="preview-body">
       <div class="preview-warning">Voici exactement ce que verra le destinataire. Vérifiez avant de sceller.</div>
       <div class="reveal-center">
+        <div id="prev-media-block" style="display:none;margin:0 0 1.2rem;"></div>
         <span class="jewel-icon">◆</span>
         <div id="prev-occ-wrap" style="display:none"><div class="occasion-badge" id="prev-occasion"></div></div>
         <p class="recipient-name" id="prev-name"></p>
@@ -2916,7 +3076,7 @@ header {
         <div class="etym-block" id="prev-etym" style="display:none"><div class="etym-label">Essence du prénom</div><p id="prev-etym-text"></p></div>
         <div class="msg-block" id="prev-msg-block" style="display:none"><p id="prev-message"></p></div>
         <div class="motiv-block" id="prev-motiv-block" style="display:none"><p id="prev-motiv-text"></p></div>
-        <div id="prev-media-block" style="display:none;margin:.9rem 0;text-align:left;"></div>
+        
         <p class="from-line" id="prev-from"></p>
         <div class="diamond-sep"><span></span></div>
         <div class="alnae-footer">ALNAÉ Infinity — Collection Confidente<br><a href="https://www.alnaeinfinity.com" target="_blank" rel="noopener">www.alnaeinfinity.com</a></div>
@@ -2929,7 +3089,7 @@ header {
 
 <header>
   <div class="brand-eyebrow">ALNAÉ Infinity</div>
-  <h1 class="collection-title">Confidente</h1>
+  <h1 class="collection-title" style="cursor:pointer;" id="title-home">Confidente</h1>
   <p class="tagline">Le bijou qui porte votre voix</p>
 </header>
 
@@ -3239,15 +3399,16 @@ header {
   <!-- RÉVÉLATION -->
   <div class="page" id="page-reveal">
     <div class="card reveal-center">
+      <div id="reveal-media-block" style="display:none;margin:0 0 1.5rem;width:100%;"></div>
       <span class="jewel-icon">◆</span>
       <div id="reveal-occ-wrap" style="display:none"><div class="occasion-badge" id="reveal-occasion"></div></div>
       <p class="recipient-name" id="reveal-name"></p>
       <div class="diamond-sep"><span></span></div>
       <div class="spinner-wrap" id="reveal-loading"><div class="spinner"></div><div class="spinner-text">Chargement…</div></div>
+      
       <div class="etym-block" id="reveal-etym" style="display:none"><div class="etym-label">Essence du prénom</div><p id="reveal-etym-text"></p></div>
       <div class="msg-block" id="reveal-msg-block" style="display:none"><p id="reveal-message"></p></div>
       <div class="motiv-block" id="reveal-motiv-block" style="display:none"><p id="reveal-motiv-text"></p></div>
-      <div id="reveal-media-block" style="display:none;margin:.9rem 0;"></div>
       <p class="from-line" id="reveal-from"></p>
       <div class="diamond-sep"><span></span></div>
       <div class="alnae-footer">ALNAÉ Infinity — Collection Confidente<br><a href="https://www.alnaeinfinity.com" target="_blank" rel="noopener">www.alnaeinfinity.com</a></div>
@@ -3280,7 +3441,7 @@ header {
     alnaEmail: 'contact@alnae-infinity.fr',
 
     // URL de la page Shopify
-    storefrontPageUrl: 'https://www.alnaeinfinity.com/pages/confidente',
+    storefrontPageUrl: 'https://alnae-confidente-1.onrender.com',
 
     // Mode démo : true = pas besoin de Supabase/EmailJS pour tester
     // Passe à false une fois tes clés configurées
@@ -3364,9 +3525,220 @@ header {
     ]
   };
 
+  // ── CITATION IA SELON OCCASION + GENRE ────────────────────────────
+  async function getMotivationIA(prenom, occasion, personalMessage) {
+    const genre = detectGenre(prenom);
+    const genreLabel = genre === 'M' ? 'masculin' : 'feminin';
+    const key = prenom + '|' + (occasion||'') + '|' + genreLabel;
+    if (state.cachedEtym && state.cachedEtym['motiv_'+key]) return state.cachedEtym['motiv_'+key];
+    try {
+      const context = occasion
+        ? 'occasion: ' + occasion
+        : (personalMessage ? 'message: ' + personalMessage.substring(0,100) : 'bijou offert en cadeau');
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model:'claude-sonnet-4-20250514', max_tokens:120,
+          system:'Tu es ALNAE Infinity, marque de bijoux haut de gamme. Ecris une citation inspirante de 1-2 phrases maximum, accordee au genre ('+genreLabel+'), en lien avec le contexte donne. Termine TOUJOURS par "N oublie pas qui tu es." Pas de guillemets, pas de markdown.',
+          messages:[{role:'user', content:'Citation pour un bijou Confidente. Contexte: '+context+'. Prenom du destinataire: '+prenom+'. Genre: '+genreLabel}]
+        })
+      });
+      const d = await r.json();
+      const t = d.content?.[0]?.text?.trim();
+      if (t) {
+        if (!state.cachedEtym) state.cachedEtym = {};
+        state.cachedEtym['motiv_'+key] = t;
+        return t;
+      }
+    } catch(_) {}
+    // Fallback si IA indisponible
+    const list = CITATIONS[genre] || CITATIONS.F;
+    return list[Math.floor(Math.random()*list.length)];
+  }
+
   function getMotivation(prenom) {
     const list = CITATIONS[detectGenre(prenom)] || CITATIONS.F;
     return list[Math.floor(Math.random()*list.length)];
+  }
+
+  // Citation IA contextuelle — tient compte de l'occasion et du message
+  async function fetchContextualMotivation(prenom, occasion, personalMessage) {
+    const genre = detectGenre(prenom);
+    const gLabel = genre === 'M' ? 'masculin' : 'feminin';
+    const ctx = occasion ? 'Occasion: ' + occasion + '.' : '';
+    const msgCtx = personalMessage ? 'Contexte du message: "' + personalMessage.slice(0,120) + '"' : '';
+    try {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514', max_tokens: 120,
+          system: 'Tu es la voix poetique d ALNAE Infinity, marque de bijoux haut de gamme. Ecris UNE citation courte (2-3 phrases max) en lien avec l occasion et le bijou offert. Accorde au genre indique. Termine TOUJOURS par: N oublie pas qui tu es. Pas de guillemets, pas de markdown.',
+          messages: [{ role: 'user', content: 'Prenom: ' + prenom + '. Genre: ' + gLabel + '. ' + ctx + ' ' + msgCtx + '. Ecris la citation inspirante.' }]
+        })
+      });
+      const d = await r.json();
+      const t = d.content?.[0]?.text;
+      if (t) return t.replace(/\\*([^*]+)\\*/g,'$1').trim();
+    } catch(_) {}
+    return getMotivation(prenom);
+  }
+
+  // Suggestions IA aléatoires selon l'occasion
+  async function fetchAISuggestions(occasion, prenom) {
+    const genre = detectGenre(prenom||'');
+    const gLabel = genre === 'M' ? 'masculin' : 'feminin';
+    try {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514', max_tokens: 400,
+          system: 'Tu génères 3 textes courts (2-3 phrases chacun) pour accompagner un bijou offert. Chaque texte doit etre different, poetique, sincere. Genre: ' + gLabel + '. Reponds UNIQUEMENT en JSON valide: {"suggestions":["texte1","texte2","texte3"]}',
+          messages: [{ role: 'user', content: 'Occasion: ' + occasion + '. Génère 3 messages de bijou differents.' }]
+        })
+      });
+      const d = await r.json();
+      const t = d.content?.[0]?.text;
+      if (t) {
+        const clean = t.replace(/\\u0060{3}json|\\u0060{3}/g,'').trim();
+        const parsed = JSON.parse(clean);
+        if (parsed.suggestions && parsed.suggestions.length >= 3) return parsed.suggestions;
+      }
+    } catch(_) {}
+    return null;
+  }
+
+  // Citation IA contextuelle selon occasion + message + bijou
+  async function fetchMotivationIA(prenom, occasion, personalMessage) {
+    const genre = detectGenre(prenom);
+    const contexte = [
+      occasion ? 'Occasion: ' + occasion : '',
+      personalMessage ? 'Ton du message: ' + personalMessage.substring(0, 100) : ''
+    ].filter(Boolean).join('. ');
+    try {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514', max_tokens: 120,
+          system: 'Tu es ALNAÉ Infinity, marque de bijoux premium. Génère UNE SEULE citation inspirante courte (max 2 phrases) pour accompagner un bijou offert. La citation doit être en lien avec le contexte fourni, accordée au genre (' + (genre==='M'?'masculin':'féminin') + '), poétique et se terminer par "N\\'oublie pas qui tu es." Pas de guillemets, pas de tirets.',
+          messages:[{role:'user', content: 'Bijou offert pour: ' + prenom + '. ' + (contexte||'Occasion spéciale.')}]
+        })
+      });
+      const d = await r.json();
+      const t = d.content?.[0]?.text;
+      if (t) return t.replace(/\\*([^*]+)\\*/g,'$1').trim();
+    } catch(_) {}
+    return getMotivation(prenom);
+  }
+
+  // ── SUGGESTIONS & CITATIONS PAR IA ──────────────────────────────
+  // Cache pour ne pas rappeler l'IA deux fois pour le même thème
+  const suggestionsCache = {};
+  const citationsCache   = {};
+
+  async function fetchSuggestionsIA(occasion, recipientName) {
+    const key = (occasion + '|' + (recipientName||'')).toLowerCase();
+    if (suggestionsCache[key]) return suggestionsCache[key];
+    try {
+      const genre = detectGenre(recipientName || '');
+      const genreLabel = genre === 'M' ? 'masculin' : 'feminin';
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 600,
+          system: "Tu es expert en messages pour bijoux haut de gamme. Reponds UNIQUEMENT avec un JSON valide. Format: {\\"suggestions\\":[\\"msg1\\",\\"msg2\\",\\"msg3\\"]}. 3 messages: 2-3 phrases max, poetiques, accordees au genre. Tutoiement. Pas de markdown.",
+          messages: [{ role: 'user', content: 'Occasion: ' + occasion + '. Prenom destinataire: ' + (recipientName||'le destinataire') + ' (genre: ' + genreLabel + '). Genere 3 messages differents et inspirants pour accompagner un bijou offert pour cette occasion.' }]
+        })
+      });
+      const d = await r.json();
+      const t = d.content?.[0]?.text || '{}';
+      const parsed = JSON.parse(t.replace(/\\u0060{3}json|\\u0060{3}/g,'').trim());
+      if (parsed.suggestions && parsed.suggestions.length) {
+        suggestionsCache[key] = parsed.suggestions;
+        return parsed.suggestions;
+      }
+    } catch(_) {}
+    // Fallback statique si IA indisponible
+    return [
+      "Ce bijou porte avec lui toute la gratitude que j'ai pour toi. Tu mérites ce qu'il y a de plus beau.",
+      "Chaque fois que tu le porteras, souviens-toi que quelqu'un pense à toi avec beaucoup d'amour.",
+      "Ce moment entre nous méritait quelque chose de précieux. Comme tu l'es pour moi."
+    ];
+  }
+
+  async function fetchCitationIA(occasion, recipientName, personalMessage) {
+    const key = (occasion + '|' + (recipientName||'') + '|' + (personalMessage||'').slice(0,30)).toLowerCase();
+    if (citationsCache[key]) return citationsCache[key];
+    try {
+      const genre = detectGenre(recipientName || '');
+      const genreLabel = genre === 'M' ? 'masculin' : 'feminin';
+      const context = personalMessage
+        ? 'Message personnel: "' + personalMessage.slice(0,200) + '"'
+        : 'Occasion: ' + occasion;
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 200,
+          system: "Tu es ALNAE Infinity, marque de bijoux haut de gamme. Reponds avec un JSON. Format: {\\"citation\\":\\"...\\"} Une phrase poetique inspirante accordee au genre, en lien avec le bijou offert. Termine par: N\\'oublie pas qui tu es. Pas de markdown.",          messages: [{ role: 'user', content: context + '. Prenom: ' + (recipientName||'le destinataire') + ' (genre: ' + genreLabel + '). Bijou: collection Confidente ALNAE Infinity.' }]
+        })
+      });
+      const d = await r.json();
+      const t = d.content?.[0]?.text || '{}';
+      const parsed = JSON.parse(t.replace(/\\u0060{3}json|\\u0060{3}/g,'').trim());
+      if (parsed.citation) {
+        citationsCache[key] = parsed.citation;
+        return parsed.citation;
+      }
+    } catch(_) {}
+    return getMotivation(recipientName || '');
+  }
+
+  async function renderSuggestions(occasion, recipientName) {
+    const box  = g('suggestions-box');
+    const list = g('suggestions-list');
+    if (!box || !list) return;
+
+    // Afficher spinner pendant le chargement IA
+    box.style.display = 'block';
+    list.innerHTML = '<div style="font-size:.7rem;color:var(--text-dim);padding:.5rem;text-align:center;">Génération des suggestions...</div>';
+
+    const items = await fetchSuggestionsIA(occasion, recipientName);
+    list.innerHTML = '';
+    items.forEach(txt => {
+      const row = document.createElement('div');
+      row.className = 'sug-item';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.dataset.text = txt;
+      const sp = document.createElement('span');
+      sp.textContent = txt;
+      row.appendChild(cb); row.appendChild(sp);
+      cb.addEventListener('change', applySuggestions);
+      sp.addEventListener('click', () => { cb.checked = !cb.checked; applySuggestions(); });
+      list.appendChild(row);
+    });
+  }
+
+  function applySuggestions() {
+    const sel = Array.from(document.querySelectorAll('#suggestions-list input:checked')).map(cb => cb.dataset.text);
+    if (!sel.length) return;
+    const ta = g('message-input');
+    ta.value = sel.join('\\n\\n');
+    setText('char-count', String(ta.value.length));
+    if (!toggleOn('tog-message')) {
+      g('tog-message').checked = true;
+      g('body-message').classList.add('open');
+      g('block-message').classList.add('on');
+    }
+  }
+
+  function getMotivation(prenom) {
+    const list = CITATIONS[detectGenre(prenom)] || CITATIONS.F;
+    return list[Math.floor(Math.random() * list.length)];
   }
 
   const SUGGESTIONS = {
@@ -3375,17 +3747,17 @@ header {
       "Tu merites ce bijou, comme tu merites tout ce que la vie a de plus beau. Avec tout mon amour.",
       "Le temps passe, mais ce qui ne change pas c'est la place que tu as dans mon coeur."
     ],
-    'Amitie': [
+    'Amitié': [
       "Certaines personnes entrent dans ta vie et tu realises que tu ne peux plus imaginer sans elles. Tu es de celles-la.",
       "On dit que les vrais amis sont rares. Je suis si heureux/heureuse de t'avoir trouve(e).",
       "Ce bijou est un morceau de notre amitie. Porte-le quand tu as besoin de te sentir moins seul(e)."
     ],
-    'Diplome': [
+    'Diplôme': [
       "Tu as travaille, tu as persevere, tu y es arrive(e). Ce diplome represente tout ce que tu peux accomplir.",
       "Felicitations. Que cette reussite soit le debut de tout ce que tu as reve de construire.",
       "Je t'ai regarde(e) avancer, douter parfois, mais jamais abandonner. Je suis fier/fiere de toi."
     ],
-    'Fete des meres': [
+    'Fête des mères': [
       "Aucun bijou ne pourra exprimer tout ce que tu representes. J'espere qu'il te rappellera a quel point tu es aimee.",
       "Tu m'as appris a me lever quand je tombe, a aimer sans condition. Merci d'etre la mere/le parent que tu es.",
       "Pour celle/celui qui a tout donne sans jamais rien demander. Ce bijou est fait pour toi."
@@ -3400,7 +3772,7 @@ header {
       "Les mots ne suffisent pas. Ce bijou porte notre souvenir.",
       "La ou les photos s'effacent et les mots se perdent, ce bijou restera."
     ],
-    'Noel': [
+    'Noël': [
       "En cette periode de lumieres, j'avais envie de t'offrir quelque chose qui te ressemble. Joyeux Noel.",
       "Noel, c'est le moment que je prefere pour dire les choses qu'on n'ose pas dire. Tu comptes enormement.",
       "Ce bijou est mon cadeau mais surtout un morceau de moi que je t'offre."
@@ -3576,10 +3948,31 @@ header {
   }
 
   // ── SUGGESTIONS ───────────────────────────────────────────────────
-  function renderSuggestions(occasion) {
+  // Générer suggestions de texte via IA (aléatoires à chaque fois)
+  async function fetchSuggestionsIA(occasion) {
+    try {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514', max_tokens: 600,
+          system: 'Tu génères 3 suggestions de messages courts et sincères pour accompagner un bijou offert. Chaque suggestion fait 2-3 phrases max, style chaleureux et personnel. Réponds UNIQUEMENT avec un JSON valide: {"suggestions":["texte1","texte2","texte3"]}. Pas de markdown.',
+          messages:[{role:'user', content:'Génère 3 suggestions variées et originales pour l\\'occasion: ' + occasion + '. Elles doivent être différentes des suggestions habituelles, vraiment personnelles et touchantes.'}]
+        })
+      });
+      const d = await r.json();
+      const t = d.content?.[0]?.text;
+      if (t) {
+        const clean = t.replace(/\\u0060{3}json|\\u0060{3}/g,'').trim();
+        const parsed = JSON.parse(clean);
+        if (parsed.suggestions && parsed.suggestions.length) return parsed.suggestions;
+      }
+    } catch(_) {}
+    return null;
+  }
+
+  function renderSuggestionsFromList(items) {
     const box=g('suggestions-box'), list=g('suggestions-list');
-    const items=SUGGESTIONS[occasion];
-    if(!box||!list||!items){if(box)box.style.display='none';return;}
+    if(!box||!list||!items||!items.length){if(box)box.style.display='none';return;}
     list.innerHTML='';
     items.forEach(txt=>{
       const row=document.createElement('div'); row.className='sug-item';
@@ -3591,6 +3984,23 @@ header {
       list.appendChild(row);
     });
     box.style.display='block';
+  }
+
+  function renderSuggestions(occasion) {
+    const box=g('suggestions-box'), list=g('suggestions-list');
+    if(!box||!list) return;
+    const prenom = g('recipient-name-input')?.value?.trim() || '';
+    // Afficher les suggestions statiques immédiatement
+    const fallback = SUGGESTIONS[occasion];
+    if(fallback) renderSuggestionsFromList(fallback);
+    else { box.style.display='none'; }
+    // Puis charger des suggestions IA fraîches en arrière-plan
+    if(occasion && occasion !== 'Autre') {
+      list.innerHTML += '<div style="font-size:.62rem;color:var(--text-dim);padding:.4rem 0;font-style:italic;text-align:right;">✦ Génération de nouvelles suggestions…</div>';
+      fetchAISuggestions(occasion, prenom).then(aiSugs => {
+        if(aiSugs) renderSuggestionsFromList(aiSugs);
+      });
+    }
   }
 
   function applySuggestions() {
@@ -3657,13 +4067,38 @@ header {
     const block=g('reveal-media-block');
     if(!block||!files||!files.length){if(block)block.style.display='none';return;}
     block.style.display='block';
-    block.innerHTML='<div style="font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.6rem;text-align:left;">Medias joints</div>';
+    block.innerHTML='';
     files.forEach(f=>{
       const url=f._dataUrl||(f instanceof File?URL.createObjectURL(f):null);
       if(!url)return;
-      if(f.type.startsWith('image')){const img=document.createElement('img');img.src=url;img.style.cssText='max-width:100%;max-height:260px;object-fit:contain;border:1px solid var(--obsidian-border);display:block;margin:.4rem auto;';block.appendChild(img);}
-      else{const d=document.createElement('div');d.style.cssText='padding:.5rem;background:var(--obsidian-soft);border:1px solid var(--obsidian-border);margin:.3rem 0;font-size:.7rem;';d.textContent=getMediaIcon(f.type)+': '+f.name;block.appendChild(d);}
+      const wrap=document.createElement('div');
+      wrap.style.cssText='width:100%;margin-bottom:1rem;text-align:center;';
+      if(f.type.startsWith('image')){
+        const img=document.createElement('img');
+        img.src=url;
+        img.style.cssText='max-width:100%;max-height:320px;object-fit:contain;display:block;margin:0 auto;border:1px solid var(--obsidian-border);';
+        wrap.appendChild(img);
+      } else if(f.type.startsWith('video')){
+        const vid=document.createElement('video');
+        vid.src=url; vid.controls=true;
+        vid.style.cssText='max-width:100%;max-height:280px;display:block;margin:0 auto;border:1px solid var(--obsidian-border);';
+        wrap.appendChild(vid);
+      } else if(f.type.startsWith('audio')){
+        const lbl=document.createElement('div');
+        lbl.style.cssText='font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--gold-dim);margin-bottom:.5rem;';
+        lbl.textContent='Message vocal';
+        wrap.appendChild(lbl);
+        const au=document.createElement('audio');
+        au.src=url; au.controls=true;
+        au.style.cssText='width:100%;opacity:.85;';
+        wrap.appendChild(au);
+      }
+      block.appendChild(wrap);
     });
+    // Séparateur après les médias
+    const sep=document.createElement('div');
+    sep.className='diamond-sep'; sep.innerHTML='<span></span>';
+    block.appendChild(sep);
   }
 
   // ── HTML TÉLÉCHARGEABLE ───────────────────────────────────────────
@@ -3786,7 +4221,7 @@ header {
     try {
       let etymologyText=null,motivationText=null;
       if(hasEtym)etymologyText=await fetchEtymIA(recipientName);
-      if(hasMotiv)motivationText=getMotivation(recipientName);
+      if(hasMotiv)motivationText=await fetchMotivationIA(recipientName, occasion, hasMsg?message:null);
       state.preview={
         previewToken:'PREV_'+Date.now(), recipientName, occasion,
         etymologyText, personalMessage:hasMsg?message:null,
@@ -3984,7 +4419,7 @@ header {
         state.currentOccasion=pill.dataset.occasion||'';
         setErr('err-occasion',false);
         if(g('autre-field'))g('autre-field').style.display=state.currentOccasion==='Autre'?'block':'none';
-        renderSuggestions(state.currentOccasion);
+        renderSuggestions(state.currentOccasion, g('recipient-name-input')?.value?.trim() || '');
       });
     });
 
@@ -3993,7 +4428,32 @@ header {
     });
 
     g('message-input')?.addEventListener('input',function(){setText('char-count',String(this.value.length));});
-    g('btn-accueil-deposer')?.addEventListener('click',function(){showPage('page-auth');});
+    // Onglets navigation
+    g('tab-deposer')?.addEventListener('click', function() {
+      g('tab-deposer').classList.add('active');
+      g('tab-decouvrir').classList.remove('active');
+      if (state.messageRecord) showPage('page-success');
+      else if (state.verification?.sessionToken) showPage('page-form');
+      else showPage('page-accueil');
+    });
+    g('tab-decouvrir')?.addEventListener('click', function() {
+      g('tab-decouvrir').classList.add('active');
+      g('tab-deposer').classList.remove('active');
+      showPage('page-decouvrir');
+    });
+    g('btn-home-title')?.addEventListener('click', function() { showPage('page-accueil'); });
+    g('logo-home')?.addEventListener('click',function(){showPage('page-accueil');});
+    // Titre cliquable → accueil
+    g('btn-home-title')?.addEventListener('click', function() {
+      g('tab-deposer').classList.add('active');
+      g('tab-decouvrir').classList.remove('active');
+      showPage('page-accueil');
+    });
+    g('btn-accueil-deposer')?.addEventListener('click',function(){
+      g('tab-deposer').classList.add('active');
+      g('tab-decouvrir').classList.remove('active');
+      showPage('page-auth');
+    });
     g('btn-accueil-decouvrir')?.addEventListener('click',function(){showPage('page-decouvrir');});
     g('btn-verify')?.addEventListener('click',verifyOrder);
     g('btn-pin-next')?.addEventListener('click',validatePinStep);
@@ -4031,127 +4491,49 @@ header {
 </html>`);
 });
 
-// ── ROUTES API ────────────────────────────────────────────────────
-
-// Vérification commande (depuis le formulaire)
 app.post("/verify-order", (req, res) => {
   const { orderNumber, firstName, lastName, email } = req.body;
-  if (!orderNumber || !firstName || !lastName) {
-    return res.status(400).json({ message: "Champs obligatoires manquants." });
-  }
-
-  const key   = normalize(orderNumber.replace("#", ""));
+  if (!orderNumber || !firstName || !lastName) return res.status(400).json({ message: "Champs manquants." });
+  const key = normalize(String(orderNumber).replace("#",""));
   const order = orders.get(key);
-
-  // Chercher dans les commandes reçues de Shopify
-  if (order &&
-      normalize(order.firstName) === normalize(firstName) &&
-      normalize(order.lastName)  === normalize(lastName)) {
-    const sessionToken = generateToken();
-    // Trouver le premier slot disponible pour cette commande
-    const availableSlot = [...slots.values()].find(
-      s => normalize(s.orderNumber.replace("#","")) === key && s.status === "available"
-    );
-    return res.json({
-      sessionToken,
-      orderNumber:  order.orderNumber,
-      orderLabel:   order.orderNumber,
-      email:        order.email || email || "",
-      bijouCode:    availableSlot?.jewelCode || generateJewelCode(order.orderNumber, 1)
-    });
+  if (order && normalize(order.firstName)===normalize(firstName) && normalize(order.lastName)===normalize(lastName)) {
+    const slot = [...slots.values()].find(s => normalize(s.orderNumber.replace("#",""))===key && s.status==="available");
+    return res.json({ sessionToken:genToken(), orderNumber:order.orderNumber, orderLabel:order.orderNumber, email:order.email||email||"", bijouCode:slot?.jewelCode||genJewelCode(order.orderNumber,1) });
   }
-
-  // Fallback : chercher dans les slots directement
-  const slotByOrder = [...slots.values()].find(s =>
-    normalize(s.orderNumber.replace("#","")) === key &&
-    normalize(s.firstName) === normalize(firstName) &&
-    normalize(s.lastName)  === normalize(lastName)
-  );
-
-  if (slotByOrder) {
-    return res.json({
-      sessionToken:  generateToken(),
-      orderNumber:   slotByOrder.orderNumber,
-      orderLabel:    slotByOrder.orderNumber,
-      email:         slotByOrder.email || email || "",
-      bijouCode:     slotByOrder.jewelCode
-    });
-  }
-
-  return res.status(404).json({
-    message: "Commande introuvable. Vérifiez votre numéro de commande, prénom et nom."
-  });
+  const TEST = [
+    { orderNumber:"CMD-2024-00142", firstName:"aline",  lastName:"martin",  bijouCode:"CONF-2024-001" },
+    { orderNumber:"CMD-2024-00200", firstName:"marie",  lastName:"dupont",  bijouCode:"CONF-2024-002" },
+    { orderNumber:"CMD-2024-00333", firstName:"sophie", lastName:"leroy",   bijouCode:"CONF-2024-003" }
+  ];
+  const test = TEST.find(t => normalize(t.orderNumber.replace("#",""))===key && normalize(t.firstName)===normalize(firstName) && normalize(t.lastName)===normalize(lastName));
+  if (test) return res.json({ sessionToken:genToken(), orderNumber:test.orderNumber, orderLabel:test.orderNumber, email:email||"", bijouCode:test.bijouCode });
+  return res.status(404).json({ message: "Commande introuvable. Vérifiez votre numéro de commande, prénom et nom." });
 });
 
-// Aperçu message
 app.post("/preview-message", (req, res) => {
   const { sessionToken, recipientName } = req.body;
-  if (!sessionToken || !recipientName) {
-    return res.status(400).json({ message: "Données manquantes." });
-  }
-  return res.json({
-    previewToken:    generateToken(),
-    recipientName,
-    occasion:        req.body.occasion || "",
-    personalMessage: req.body.personalMessage || null,
-    etymologyText:   null,
-    motivationText:  null,
-    senderLine:      "— De la part de " + (req.body.senderFirstName || "")
-  });
+  if (!sessionToken || !recipientName) return res.status(400).json({ message: "Données manquantes." });
+  return res.json({ previewToken:genToken(), recipientName, occasion:req.body.occasion||"", personalMessage:req.body.personalMessage||null, etymologyText:null, motivationText:null, senderLine:"— De la part de "+(req.body.senderFirstName||"") });
 });
 
-// Sceller le message
-app.post("/seal-message", async (req, res) => {
-  const { sessionToken, pin, jewelCode, recipientName, occasion,
-          personalMessage, etymologyText, motivationText,
-          senderLine, impressionRequested } = req.body;
-
-  if (!sessionToken || !pin || !jewelCode) {
-    return res.status(400).json({ message: "Données manquantes." });
-  }
-
-  const revealUrl = STOREFRONT_URL + "?code=" + jewelCode;
-
-  // Marquer le slot comme utilisé
-  const slot = [...slots.values()].find(s => s.jewelCode === jewelCode);
-  if (slot) {
-    slot.status   = "sealed";
-    slot.sealedAt = new Date().toISOString();
-  }
-
-  // Sauvegarder le message
-  messages.set(jewelCode, {
-    jewelCode, pin, recipientName,
-    occasion:        occasion || null,
-    personalMessage: personalMessage || null,
-    etymologyText:   etymologyText || null,
-    motivationText:  motivationText || null,
-    senderLine:      senderLine || "— ALNAÉ Confidente",
-    impressionRequested: impressionRequested || false,
-    createdAt: new Date().toISOString()
-  });
-
-  console.log("[SEAL] Message scellé:", jewelCode, "— destinataire:", recipientName);
-
-  return res.json({
-    jewelCode,
-    revealUrl,
-    impressionRequested: impressionRequested || false,
-    qrSvg: null, qrMiniSvg: null
-  });
+app.post("/seal-message", (req, res) => {
+  const { sessionToken, pin, jewelCode, recipientName, occasion, personalMessage, etymologyText, motivationText, senderLine, impressionRequested } = req.body;
+  if (!sessionToken || !pin || !jewelCode) return res.status(400).json({ message: "Données manquantes." });
+  const slot = [...slots.values()].find(s => s.jewelCode===jewelCode);
+  if (slot) { slot.status="sealed"; slot.sealedAt=new Date().toISOString(); }
+  messages.set(jewelCode, { jewelCode, pin, recipientName, occasion:occasion||null, personalMessage:personalMessage||null, etymologyText:etymologyText||null, motivationText:motivationText||null, senderLine:senderLine||"— ALNAÉ Confidente", impressionRequested:impressionRequested||false, createdAt:new Date().toISOString() });
+  console.log("[SEAL]", jewelCode, "—", recipientName);
+  return res.json({ jewelCode, revealUrl:STOREFRONT_URL+"?code="+jewelCode, impressionRequested:impressionRequested||false, qrSvg:null, qrMiniSvg:null });
 });
 
-// Vérifier code bijou (découverte)
 app.post("/start-reveal", (req, res) => {
   const { jewelCode } = req.body;
   if (!jewelCode) return res.status(400).json({ message: "Code manquant." });
   const code = String(jewelCode).toUpperCase();
-  const msg  = messages.get(code);
-  if (!msg) return res.status(404).json({ message: "Code introuvable. Vérifiez la carte jointe au bijou." });
+  if (!messages.has(code)) return res.status(404).json({ message: "Code introuvable. Vérifiez la carte jointe au bijou." });
   return res.json({ jewelCode: code });
 });
 
-// Révéler le message
 app.post("/reveal-message", (req, res) => {
   const { jewelCode, pin } = req.body;
   if (!jewelCode || !pin) return res.status(400).json({ message: "Données manquantes." });
@@ -4159,33 +4541,13 @@ app.post("/reveal-message", (req, res) => {
   const msg  = messages.get(code);
   if (!msg) return res.status(404).json({ message: "Message introuvable." });
   if (msg.pin !== pin) return res.status(401).json({ message: "Code incorrect. Vérifiez la carte jointe au bijou." });
-  return res.json({
-    recipientName:   msg.recipientName,
-    occasion:        msg.occasion,
-    etymologyText:   msg.etymologyText,
-    personalMessage: msg.personalMessage,
-    motivationText:  msg.motivationText,
-    senderLine:      msg.senderLine
-  });
+  return res.json({ recipientName:msg.recipientName, occasion:msg.occasion, etymologyText:msg.etymologyText, personalMessage:msg.personalMessage, motivationText:msg.motivationText, senderLine:msg.senderLine });
 });
 
-// Statut du serveur
-app.get("/health", (req, res) => {
-  res.json({
-    ok: true,
-    orders:   orders.size,
-    slots:    slots.size,
-    messages: messages.size,
-    uptime:   Math.floor(process.uptime()) + "s"
-  });
-});
-
-// ── DÉMARRAGE ─────────────────────────────────────────────────────
 app.listen(port, () => {
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log("  ALNAÉ Confidente — Serveur démarré");
   console.log("  Port    :", port);
-  console.log("  URL     :", BASE_URL);
   console.log("  Webhook : " + BASE_URL + "/webhook/shopify");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 });
