@@ -4598,24 +4598,7 @@ app.post("/verify-order", (req, res) => {
     });
   }
 
-  const test = TEST.find(
-    t =>
-      normalize(t.orderNumber.replace("#","")) === key &&
-      normalize(t.firstName) === normalize(firstName) &&
-      normalize(t.lastName) === normalize(lastName)
-  );
-
-  if (test) {
-    return res.json({
-      sessionToken: genToken(),
-      orderNumber: test.orderNumber,
-      orderLabel: test.orderNumber,
-      email: email || "",
-      slots: [{ jewelCode: test.bijouCode }]
-    });
-  }
-
-  return res.status(404).json({
+   return res.status(404).json({
     message: "Commande introuvable. Vérifiez votre numéro de commande, prénom et nom."
   });
 });
