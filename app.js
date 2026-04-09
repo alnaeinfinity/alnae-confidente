@@ -62,25 +62,48 @@ function genJewelCode(orderNumber, i) {
   return ("CONF-" + String(orderNumber).replace(/[^a-zA-Z0-9]/g,"") + "-" + String(i).padStart(2,"0")).toUpperCase();
 }
 
-function sendEmail(to, subject, html) {
-  if (!SENDGRID_KEY) {
-    console.log("[EMAIL] Non configuré — destinataire:", to);
-    return Promise.resolve(false);
+async function sendEmail(to, subject, html) {
+  const BREVO_API_KEY = process.env.BREVO_API_KEY;
+  const EMAIL_FROM = process.env.EMAIL_FROM || "contact.alnae@gmail.com";
+  const SHOP_NAME = process.env.SHOP_NAME || "Alnaé Infinity";
+
+  if (!BREVO_API_KEY) {
+    console.log("[EMAIL] BREVO_API_KEY manquante - destinataire:", to);
+    return false;
   }
-  return new Promise((resolve) => {
-    const payload = JSON.stringify({
-      personalizations: [{ to: [{ email: to }] }],
-      from: { email: ALNAE_EMAIL, name: "ALNAÉ Infinity" },
-      subject, content: [{ type: "text/html", value: html }]
+
+  try {
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "api-key": BREVO_API_KEY
+      },
+      body: JSON.stringify({
+        sender: {
+          name: SHOP_NAME,
+          email: EMAIL_FROM
+        },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html
+      })
     });
-    const opts = {
-      hostname: "api.sendgrid.com", path: "/v3/mail/send", method: "POST",
-      headers: { "Authorization": "Bearer " + SENDGRID_KEY, "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) }
-    };
-    const r = https.request(opts, res => resolve(res.statusCode === 202));
-    r.on("error", () => resolve(false));
-    r.write(payload); r.end();
-  });
+
+    const text = await response.text();
+
+    if (!response.ok) {
+      console.log("[EMAIL] Erreur Brevo:", response.status, text);
+      return false;
+    }
+
+    console.log("[EMAIL] Envoyé:", to);
+    return true;
+  } catch (error) {
+    console.log("[EMAIL] Exception Brevo:", error.message);
+    return false;
+  }
 }
 
 function buildEmailHTML(order, orderSlots) {
