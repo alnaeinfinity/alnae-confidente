@@ -4210,7 +4210,7 @@ header {
     btn.disabled=true; btn.textContent='VERIFICATION...';
     try {
       // 1. Essayer Supabase
-      let order = await checkOrderInSupabase(orderNumber, firstName, lastName);
+      let order = await checkOrderInSupabase(orderNumber, firstName, lastName, email);
       if (order) {
         state.verification = {
           sessionToken:'SUPA_'+Date.now(), orderNumber:order.order_number,
