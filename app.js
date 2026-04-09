@@ -1331,11 +1331,6 @@ header {
   const isEmailJSReady = () => CONFIG.emailjsPublicKey !== 'COLLE_TA_EMAILJS_PUBLIC_KEY_ICI';
 
   // ── DONNÉES DÉMO ──────────────────────────────────────────────────
-  const DEMO_ORDERS = {
-    'CMD-2024-00142': { prenom:'aline',  nom:'martin', bijouCode:'CONF-2024-001' },
-    'CMD-2024-00200': { prenom:'marie',  nom:'dupont', bijouCode:'CONF-2024-002' },
-    'CMD-2024-00333': { prenom:'sophie', nom:'leroy',  bijouCode:'CONF-2024-003' }
-  };
 
   // ── GENRES ────────────────────────────────────────────────────────
   const PRENOMS_M = new Set([
@@ -3534,14 +3529,7 @@ header {
   const isSupabaseReady = () => db !== null;
   const isEmailJSReady = () => CONFIG.emailjsPublicKey !== 'COLLE_TA_EMAILJS_PUBLIC_KEY_ICI';
 
-  // ── DONNÉES DÉMO ──────────────────────────────────────────────────
-  const DEMO_ORDERS = {
-    'CMD-2024-00142': { prenom:'aline',  nom:'martin', bijouCode:'CONF-2024-001' },
-    'CMD-2024-00200': { prenom:'marie',  nom:'dupont', bijouCode:'CONF-2024-002' },
-    'CMD-2024-00333': { prenom:'sophie', nom:'leroy',  bijouCode:'CONF-2024-003' }
-  };
-
-  // ── GENRES ────────────────────────────────────────────────────────
+   // ── GENRES ────────────────────────────────────────────────────────
   const PRENOMS_M = new Set([
     'aaron','adam','adrien','alexandre','alexis','alban','albert','ali','allan',
     'arnaud','arthur','aurelien','axel','ayoub','baptiste','benjamin','benoit',
@@ -4622,12 +4610,6 @@ app.post("/verify-order", (req, res) => {
       }))
     });
   }
-
-  const TEST = [
-    { orderNumber: "CMD-2024-00142", firstName: "aline",  lastName: "martin", bijouCode: "CONF-2024-001" },
-    { orderNumber: "CMD-2024-00200", firstName: "marie",  lastName: "dupont", bijouCode: "CONF-2024-002" },
-    { orderNumber: "CMD-2024-00333", firstName: "sophie", lastName: "leroy",  bijouCode: "CONF-2024-003" }
-  ];
 
   const test = TEST.find(
     t =>
