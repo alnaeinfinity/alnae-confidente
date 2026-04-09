@@ -972,7 +972,7 @@ header {
       </div>
       <div class="rgpd-box">
         <strong>Données personnelles</strong><br>
-        Vos données sont utilisées pour vérifier votre commande et vous envoyer la confirmation. Elles ne sont pas revendues. Conformément au RGPD : <strong>commande.alnae@gmail.com</strong>
+        Vos données sont utilisées pour vérifier votre commande et vous envoyer la confirmation. Elles ne sont pas revendues. Conformément au RGPD : <strong>contact.alnae@gmail.com</strong>
         <div class="rgpd-row"><input type="checkbox" id="rgpd-auth"><span id="lbl-rgpd-auth">J'accepte la politique de confidentialité d'ALNAÉ Infinity.</span></div>
         <div class="field-error" id="err-rgpd">Consentement requis.</div>
       </div>
