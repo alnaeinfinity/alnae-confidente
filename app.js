@@ -2012,20 +2012,37 @@ if (lastName && norm(lastName) !== norm(data.customer_last_name || '')) return n
           email, customerFirstName:firstName, customerLastName:lastName,
           bijouCode:order.jewel_code
         };
-      } else {
-  throw new Error('Commande introuvable. Vérifiez vos informations.');
-}
-        };
-      }
-      setText('verified-name-display',state.verification.displayName+' - '+state.verification.orderLabel);
-      showPage('page-pin');
-    } catch(error) {
-      const el=g('auth-error');
-      if(el){el.textContent=error.message||'Informations incorrectes.';el.classList.add('show');}
-    } finally {
-      btn.disabled=false; btn.textContent='VERIFIER MA COMMANDE';
-    }
+      try {
+  // 1. Essayer Supabase
+  let order = await checkOrderInSupabase(orderNumber, firstName, lastName, email);
+
+  if (order) {
+    state.verification = {
+      sessionToken:'SUPA_'+Date.now(),
+      orderNumber:order.order_number,
+      orderLabel:order.order_number,
+      displayName:firstName+' '+lastName,
+      email,
+      customerFirstName:firstName,
+      customerLastName:lastName,
+      bijouCode:order.jewel_code
+    };
+  } else {
+    throw new Error('Commande introuvable. Vérifiez vos informations.');
   }
+
+  setText('verified-name-display', state.verification.displayName+' - '+state.verification.orderLabel);
+  showPage('page-pin');
+} catch(error) {
+  const el = g('auth-error');
+  if (el) {
+    el.textContent = error.message || 'Informations incorrectes.';
+    el.classList.add('show');
+  }
+} finally {
+  btn.disabled = false;
+  btn.textContent = 'VERIFIER MA COMMANDE';
+}
 
   // ── PIN ───────────────────────────────────────────────────────────
   function validatePinStep(){
