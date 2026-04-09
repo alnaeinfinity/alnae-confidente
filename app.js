@@ -1678,7 +1678,7 @@ header {
   }
 
   // ── SUPABASE : VÉRIFIER COMMANDE ──────────────────────────────────
-  async function checkOrderInSupabase(orderNumber, firstName, lastName) {
+  async function checkOrderInSupabase(orderNumber, firstName, lastName, email) {
     if (!isSupabaseReady()) return null;
     try {
       const { data, error } = await db
@@ -3882,7 +3882,7 @@ header {
   }
 
   // ── SUPABASE : VÉRIFIER COMMANDE ──────────────────────────────────
-  async function checkOrderInSupabase(orderNumber, firstName, lastName) {
+  async function checkOrderInSupabase(orderNumber, firstName, lastName, email) {
     if (!isSupabaseReady()) return null;
     try {
       const { data, error } = await db
