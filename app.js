@@ -38,14 +38,24 @@ function countConfidente(lineItems) {
   let n = 0;
 
   for (const article of lineItems) {
-    // On récupère les tags du produit (Shopify)
-    const tags = (article.product_tags || article.tags || "").toLowerCase();
+    const title = normalize(article.title || article.name || article.product_title || "");
+    const variantTitle = normalize(article.variant_title || "");
+    const sku = normalize(article.sku || "");
+    const tags = normalize((article.product_tags || article.tags || "").replace(/,/g, " "));
 
-    // Vérifie si le tag "confidente" est présent
-    if (tags.includes("confidente")) {
-      n += article.quantity || 1;
+    const isConfidente =
+      title.includes("option confidente") ||
+      variantTitle.includes("option confidente") ||
+      sku.includes("confidente") ||
+      tags.includes("confidente");
+
+    if (isConfidente) {
+      n += Number(article.quantity) || 1;
     }
   }
+
+  return n;
+}
 
   return n;
 }
