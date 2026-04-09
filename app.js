@@ -1675,6 +1675,7 @@ header {
   // ── SUPABASE : VÉRIFIER COMMANDE ──────────────────────────────────
   async function checkOrderInSupabase(orderNumber, firstName, lastName, email) {
     if (!isSupabaseReady()) return null;
+    orderNumber = String(orderNumber || '').replace('#', '').trim();
     try {
       const { data, error } = await db
         .from('orders')
@@ -1682,8 +1683,10 @@ header {
         .eq('order_number', orderNumber.toUpperCase())
         .single();
       if (error || !data) return null;
-      if (norm(firstName) !== norm(data.customer_first_name)) return null;
-      if (norm(lastName)  !== norm(data.customer_last_name))  return null;
+      const emailDb = data.email || data.customer_email || '';
+if (norm(email) !== norm(emailDb)) return null;
+if (firstName && norm(firstName) !== norm(data.customer_first_name || '')) return null;
+if (lastName && norm(lastName) !== norm(data.customer_last_name || '')) return null;
       return data;
     } catch(e) { return null; }
   }
@@ -3872,6 +3875,7 @@ header {
   // ── SUPABASE : VÉRIFIER COMMANDE ──────────────────────────────────
   async function checkOrderInSupabase(orderNumber, firstName, lastName, email) {
     if (!isSupabaseReady()) return null;
+    orderNumber = String(orderNumber || '').replace('#', '').trim();
     try {
       const { data, error } = await db
         .from('orders')
@@ -3879,8 +3883,10 @@ header {
         .eq('order_number', orderNumber.toUpperCase())
         .single();
       if (error || !data) return null;
-      if (norm(firstName) !== norm(data.customer_first_name)) return null;
-      if (norm(lastName)  !== norm(data.customer_last_name))  return null;
+     const emailDb = data.email || data.customer_email || '';
+if (norm(email) !== norm(emailDb)) return null;
+if (firstName && norm(firstName) !== norm(data.customer_first_name || '')) return null;
+if (lastName && norm(lastName) !== norm(data.customer_last_name || '')) return null;
       return data;
     } catch(e) { return null; }
   }
