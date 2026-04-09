@@ -57,8 +57,6 @@ function countConfidente(lineItems) {
   return n;
 }
 
-  return n;
-}
 function genToken() { return crypto.randomBytes(20).toString("hex"); }
 function genJewelCode(orderNumber, i) {
   return ("CONF-" + String(orderNumber).replace(/[^a-zA-Z0-9]/g,"") + "-" + String(i).padStart(2,"0")).toUpperCase();
