@@ -2004,7 +2004,7 @@ if (lastName && norm(lastName) !== norm(data.customer_last_name || '')) return n
     btn.disabled=true; btn.textContent='VERIFICATION...';
     try {
       // 1. Essayer Supabase
-      let order = await checkOrderInSupabase(orderNumber, firstName, lastName);
+      let order = await checkOrderInSupabase(orderNumber, firstName, lastName, email);
       if (order) {
         state.verification = {
           sessionToken:'SUPA_'+Date.now(), orderNumber:order.order_number,
@@ -2013,19 +2013,8 @@ if (lastName && norm(lastName) !== norm(data.customer_last_name || '')) return n
           bijouCode:order.jewel_code
         };
       } else {
-        // 2. Fallback mode démo
-        const key=orderNumber.replace('#','').toUpperCase();
-        const demoKey=Object.keys(DEMO_ORDERS).find(k=>k===key||k.endsWith('-'+key));
-        const demoOrder=demoKey?DEMO_ORDERS[demoKey]:null;
-        if(!demoOrder||norm(firstName)!==demoOrder.prenom||norm(lastName)!==demoOrder.nom) {
-          throw new Error('Commande introuvable. Verifiez vos informations.');
-        }
-        await new Promise(r=>setTimeout(r,500));
-        state.verification = {
-          sessionToken:'DEMO_'+Date.now(), orderNumber:demoKey,
-          orderLabel:demoKey, displayName:firstName+' '+lastName,
-          email, customerFirstName:firstName, customerLastName:lastName,
-          bijouCode:demoOrder.bijouCode
+  throw new Error('Commande introuvable. Vérifiez vos informations.');
+}
         };
       }
       setText('verified-name-display',state.verification.displayName+' - '+state.verification.orderLabel);
