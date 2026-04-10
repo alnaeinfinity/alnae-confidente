@@ -1,8 +1,3 @@
-// ═══════════════════════════════════════════════════════════════════
-//  ALNAÉ Confidente — Serveur Render v2
-//  Gère : codes clients, messages, révélation, espace admin
-// ═══════════════════════════════════════════════════════════════════
-
 const express = require("express");
 const https   = require("https");
 const app     = express();
