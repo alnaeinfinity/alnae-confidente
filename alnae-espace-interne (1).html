@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALNAÉ Infinity — Espace Interne</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Raleway:wght@200;300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --lin:#F2EDE3;--lin-mid:#EDE8DC;--lin-soft:#E8E2D4;--lin-border:#C8BAA0;
+  --gold:#8B6914;--gold-b:#A07820;--gold-d:#6B5010;
+  --dark:#1C1408;--dark2:#3A2C18;
+  --text:#1C1408;--text-m:#5A4A2A;--text-d:#8A7A60;
+  --err:#C0392B;--ok:#27AE60;--info:#2980B9;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{background:var(--lin);color:var(--text);font-family:'Raleway',sans-serif;font-weight:300;min-height:100vh;-webkit-font-smoothing:antialiased;}
+body::before{content:'';position:fixed;top:-30vh;left:50%;transform:translateX(-50%);width:700px;height:400px;background:radial-gradient(ellipse,rgba(139,105,20,.04) 0%,transparent 70%);pointer-events:none;z-index:0;}
+
+/* ── PAGES ── */
+.page{display:none;min-height:100vh;}
+.page.active{display:block;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeUp .35s ease both;}
+
+/* ── LOGIN ── */
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:2rem;position:relative;z-index:1;}
+.login-box{background:rgba(255,252,248,.95);border:1px solid var(--lin-border);padding:3rem 2.5rem;max-width:400px;width:100%;position:relative;}
+.login-box::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+.login-header{text-align:center;margin-bottom:2rem;}
+.login-eyebrow{font-size:.58rem;letter-spacing:.45em;text-transform:uppercase;color:var(--gold);margin-bottom:.6rem;display:flex;align-items:center;justify-content:center;gap:.8rem;}
+.login-eyebrow::before,.login-eyebrow::after{content:'';width:30px;height:1px;background:var(--gold-d);}
+.login-title{font-family:'Playfair Display',serif;font-size:1.9rem;font-style:italic;color:var(--dark);font-weight:400;}
+.login-sub{font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-d);margin-top:.3rem;}
+
+/* ── DASHBOARD HEADER ── */
+.dash-header{background:var(--dark);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.dash-brand{display:flex;align-items:center;gap:1rem;}
+.dash-brand-name{font-family:'Playfair Display',serif;font-size:1.2rem;font-style:italic;color:var(--gold);font-weight:400;}
+.dash-brand-label{font-size:.55rem;letter-spacing:.3em;text-transform:uppercase;color:rgba(240,235,224,.5);}
+.dash-nav{display:flex;align-items:center;gap:1.5rem;}
+.dash-nav-btn{font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(240,235,224,.6);cursor:pointer;transition:color .2s;background:none;border:none;font-family:'Raleway',sans-serif;}
+.dash-nav-btn:hover{color:var(--gold);}
+.dash-nav-btn.active{color:var(--gold);}
+.btn-logout{font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:rgba(240,235,224,.4);cursor:pointer;background:none;border:1px solid rgba(240,235,224,.15);padding:.35rem .8rem;font-family:'Raleway',sans-serif;transition:all .2s;}
+.btn-logout:hover{color:rgba(240,235,224,.8);border-color:rgba(240,235,224,.4);}
+
+/* ── MAIN CONTENT ── */
+.dash-body{max-width:960px;margin:0 auto;padding:2rem 1.5rem 5rem;position:relative;z-index:1;}
+
+/* ── STATS ── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:2rem;}
+.stat-card{background:rgba(255,252,248,.9);border:1px solid var(--lin-border);padding:1.2rem 1.5rem;position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+.stat-label{font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-d);margin-bottom:.4rem;}
+.stat-value{font-family:'Playfair Display',serif;font-size:2rem;color:var(--dark);font-weight:400;}
+.stat-sub{font-size:.65rem;color:var(--text-d);margin-top:.2rem;}
+
+/* ── SECTION TITLE ── */
+.section-title{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:400;color:var(--dark);margin-bottom:.3rem;}
+.section-sub{font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text-d);margin-bottom:1.5rem;}
+
+/* ── CARDS ── */
+.card{background:rgba(255,252,248,.9);border:1px solid var(--lin-border);padding:1.8rem;position:relative;overflow:hidden;margin-bottom:1rem;}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+.card-title{font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:400;color:var(--dark);margin-bottom:.2rem;}
+.card-sub{font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text-d);margin-bottom:1.2rem;}
+
+/* ── FIELDS ── */
+.field{margin-bottom:1.1rem;}
+.field label{display:block;font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);margin-bottom:.45rem;font-weight:400;}
+.req{color:var(--gold);}
+.field input,.field textarea,.field select{width:100%;padding:.75rem 1rem;border:1px solid var(--lin-border);background:rgba(255,252,248,.95);font-family:'Raleway',sans-serif;font-size:.88rem;font-weight:300;color:var(--dark);outline:none;transition:border-color .2s,box-shadow .2s;-webkit-appearance:none;}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--gold-d);box-shadow:0 0 0 3px rgba(139,105,20,.07);}
+.field input.err{border-color:var(--err);}
+.field input[readonly]{background:var(--lin-soft);color:var(--text-d);cursor:not-allowed;}
+.field textarea{resize:vertical;min-height:90px;line-height:1.7;}
+.field-error{font-size:.65rem;color:var(--err);margin-top:.3rem;display:none;}
+.field-error.show{display:block;}
+.field-hint{font-size:.62rem;color:var(--text-d);margin-top:.3rem;line-height:1.5;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+
+/* ── QUANTITY SELECTOR ── */
+.qty-wrap{display:flex;align-items:center;gap:.8rem;}
+.qty-btn{width:36px;height:36px;border:1px solid var(--lin-border);background:white;font-size:1.2rem;cursor:pointer;color:var(--dark);transition:all .2s;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.qty-btn:hover{border-color:var(--gold-d);color:var(--gold);}
+.qty-display{font-family:'Playfair Display',serif;font-size:1.6rem;color:var(--dark);min-width:40px;text-align:center;}
+.qty-label{font-size:.65rem;color:var(--text-d);}
+
+/* ── BUTTONS ── */
+.btn{display:block;width:100%;padding:.9rem 1rem;background:transparent;color:var(--dark);border:1px solid var(--lin-border);font-family:'Raleway',sans-serif;font-size:.6rem;font-weight:500;letter-spacing:.3em;text-transform:uppercase;cursor:pointer;transition:all .3s;margin-top:.8rem;position:relative;}
+.btn:hover{border-color:var(--text-m);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-primary{background:var(--dark);color:var(--lin);border-color:var(--dark);}
+.btn-primary:hover:not(:disabled){background:#2A2010;}
+.btn-gold{background:var(--gold);color:var(--lin);border-color:var(--gold);}
+.btn-gold:hover:not(:disabled){background:var(--gold-b);}
+.btn-sm{display:inline-block;width:auto;padding:.5rem 1.2rem;font-size:.58rem;margin:0;}
+.btn-icon{display:inline-flex;align-items:center;gap:.5rem;}
+
+/* ── ALERTS ── */
+.alert{padding:.75rem 1rem;font-size:.72rem;line-height:1.5;margin-bottom:.9rem;display:none;border-left:2px solid;}
+.alert.show{display:block;}
+.alert-error{background:rgba(192,57,43,.06);border-color:var(--err);color:var(--err);}
+.alert-success{background:rgba(39,174,96,.06);border-color:var(--ok);color:var(--ok);}
+.alert-info{background:rgba(41,128,185,.06);border-color:var(--info);color:var(--info);}
+
+/* ── CODES GÉNÉRÉS ── */
+.codes-list{display:flex;flex-direction:column;gap:.5rem;margin:1rem 0;}
+.code-item{display:flex;align-items:center;justify-content:space-between;background:var(--lin-soft);border:1px solid var(--lin-border);padding:.7rem 1rem;}
+.code-value{font-family:monospace;font-size:1rem;color:var(--dark);letter-spacing:.1em;font-weight:bold;}
+.code-index{font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-d);}
+.code-status{font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;padding:.2rem .6rem;border:1px solid;}
+.status-available{color:var(--ok);border-color:var(--ok);background:rgba(39,174,96,.06);}
+.status-sealed{color:var(--text-d);border-color:var(--text-d);background:var(--lin-soft);}
+.status-used{color:var(--err);border-color:var(--err);background:rgba(192,57,43,.04);}
+
+/* ── EMAIL PREVIEW ── */
+.email-preview{background:white;border:1px solid var(--lin-border);padding:1.5rem;margin:1rem 0;font-size:.8rem;line-height:1.7;color:var(--text-m);}
+.email-preview-header{font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);border-bottom:1px solid var(--lin-border);padding-bottom:.6rem;margin-bottom:1rem;}
+.email-subject{font-size:.75rem;color:var(--dark);font-weight:500;margin-bottom:.8rem;}
+.email-body{color:var(--text-m);line-height:1.8;}
+.email-code-block{background:var(--lin-soft);border:1px solid var(--lin-border);padding:.8rem 1rem;margin:.6rem 0;font-family:monospace;font-size:1rem;letter-spacing:.1em;color:var(--dark);}
+.email-link{color:var(--gold);word-break:break-all;}
+
+/* ── HISTORIQUE TABLE ── */
+.history-table{width:100%;border-collapse:collapse;}
+.history-table th{font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--text-d);font-weight:400;padding:.7rem .8rem;border-bottom:1px solid var(--lin-border);text-align:left;background:var(--lin-soft);}
+.history-table td{font-size:.78rem;color:var(--text);padding:.75rem .8rem;border-bottom:1px solid rgba(200,186,160,.3);vertical-align:top;}
+.history-table tr:hover td{background:rgba(255,252,248,.7);}
+.history-table .order-num{font-family:monospace;font-weight:bold;color:var(--dark);}
+.history-table .client-email{color:var(--text-m);font-size:.72rem;}
+.history-empty{text-align:center;padding:3rem;color:var(--text-d);font-size:.75rem;font-style:italic;}
+
+/* ── DETAIL ORDER OVERLAY ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(28,20,8,.7);z-index:500;overflow-y:auto;padding:2rem 1rem;backdrop-filter:blur(4px);}
+.overlay.show{display:flex;align-items:flex-start;justify-content:center;}
+.overlay-inner{background:rgba(255,252,248,.98);border:1px solid var(--lin-border);max-width:600px;width:100%;margin:auto;position:relative;}
+.overlay-inner::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+.overlay-header{background:var(--dark);padding:.9rem 1.3rem;display:flex;align-items:center;justify-content:space-between;}
+.overlay-header span{font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);}
+.overlay-close{background:none;border:none;color:rgba(240,235,224,.6);font-size:1rem;cursor:pointer;padding:.2rem .4rem;}
+.overlay-close:hover{color:var(--lin);}
+.overlay-body{padding:1.8rem;}
+
+/* ── SPINNER ── */
+.spinner-wrap{text-align:center;padding:1.5rem;display:none;}
+.spinner-wrap.show{display:block;}
+.spinner{width:24px;height:24px;border:1px solid var(--lin-border);border-top-color:var(--gold);border-radius:50%;animation:spin .9s linear infinite;margin:0 auto .5rem;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner-text{font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-d);}
+
+/* ── TABS ── */
+.dash-tabs{display:flex;border-bottom:1px solid var(--lin-border);margin-bottom:2rem;}
+.dash-tab{padding:.8rem 1.5rem;font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-d);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;}
+.dash-tab:hover{color:var(--text-m);}
+.dash-tab.active{color:var(--gold);border-bottom-color:var(--gold);}
+
+/* ── BADGE ── */
+.badge{display:inline-block;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;padding:.15rem .5rem;border:1px solid;vertical-align:middle;margin-left:.4rem;}
+.badge-ok{color:var(--ok);border-color:var(--ok);}
+.badge-sealed{color:var(--text-d);border-color:var(--text-d);}
+.badge-partial{color:var(--gold);border-color:var(--gold);}
+
+@media(max-width:600px){
+  .grid-2{grid-template-columns:1fr;}
+  .stats-grid{grid-template-columns:1fr 1fr;}
+  .dash-header{padding:.8rem 1rem;}
+  .dash-brand-label{display:none;}
+  .dash-body{padding:1.2rem 1rem 4rem;}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ PAGE LOGIN ═══════════════════════════════════════════════ -->
+<div class="page active" id="page-login">
+  <div class="login-wrap">
+    <div class="login-box fade-in">
+      <div class="login-header">
+        <div class="login-eyebrow">ALNAÉ Infinity</div>
+        <h1 class="login-title">Espace Interne</h1>
+        <p class="login-sub">Accès réservé à l'équipe</p>
+      </div>
+      <div class="alert alert-error" id="login-error">Code d'accès incorrect.</div>
+      <div class="field">
+        <label>Code d'accès <span class="req">*</span></label>
+        <input type="password" id="login-code" placeholder="••••••••••" autocomplete="off">
+      </div>
+      <button class="btn btn-primary" id="btn-login" type="button">Entrer →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PAGE DASHBOARD ══════════════════════════════════════════ -->
+<div class="page" id="page-dashboard">
+
+  <!-- Header -->
+  <div class="dash-header">
+    <div class="dash-brand">
+      <div>
+        <div class="dash-brand-label">Espace interne</div>
+        <div class="dash-brand-name">ALNAÉ Confidente</div>
+      </div>
+    </div>
+    <div class="dash-nav">
+      <button class="dash-nav-btn active" id="nav-accueil" type="button">◆ Accueil</button>
+      <button class="dash-nav-btn" id="nav-nouvelle" type="button">✦ Nouvelle commande</button>
+      <button class="dash-nav-btn" id="nav-historique" type="button">◇ Historique</button>
+      <button class="btn-logout" id="btn-logout" type="button">Déconnexion</button>
+    </div>
+  </div>
+
+  <div class="dash-body">
+
+    <!-- ── VUE ACCUEIL ─────────────────────────────────────── -->
+    <div id="vue-accueil" class="fade-in">
+      <div style="margin-bottom:2rem;">
+        <div class="section-title">Bonjour, ALNAÉ ✦</div>
+        <div class="section-sub">Tableau de bord — Collection Confidente</div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Commandes créées</div>
+          <div class="stat-value" id="stat-orders">0</div>
+          <div class="stat-sub">depuis le début</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Codes générés</div>
+          <div class="stat-value" id="stat-codes">0</div>
+          <div class="stat-sub">codes clients</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Messages scellés</div>
+          <div class="stat-value" id="stat-sealed">0</div>
+          <div class="stat-sub">prêts à graver</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">En attente</div>
+          <div class="stat-value" id="stat-pending">0</div>
+          <div class="stat-sub">codes non utilisés</div>
+        </div>
+      </div>
+
+      <!-- Actions rapides -->
+      <div class="card">
+        <div class="card-title">Actions rapides</div>
+        <div class="card-sub">Que voulez-vous faire ?</div>
+        <div style="display:flex;gap:.8rem;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm btn-icon" id="quick-nouvelle" type="button">✦ Nouvelle commande client</button>
+          <button class="btn btn-sm btn-icon" id="quick-historique" type="button">◇ Voir l'historique</button>
+        </div>
+      </div>
+
+      <!-- Dernières commandes -->
+      <div class="card">
+        <div class="card-title">Dernières commandes</div>
+        <div class="card-sub">Les 5 plus récentes</div>
+        <div id="recent-orders-wrap">
+          <div class="history-empty">Aucune commande pour l'instant.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── VUE NOUVELLE COMMANDE ───────────────────────────── -->
+    <div id="vue-nouvelle" class="fade-in" style="display:none;">
+      <div style="margin-bottom:1.5rem;">
+        <div class="section-title">Nouvelle commande client</div>
+        <div class="section-sub">Étape 1 — Informations de la commande</div>
+      </div>
+
+      <div class="card" id="card-form-commande">
+        <div class="alert alert-error" id="commande-error"></div>
+        <div class="alert alert-success" id="commande-success"></div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>N° de commande Shopify <span class="req">*</span></label>
+            <input type="text" id="inp-order-number" placeholder="ex. 1042" autocomplete="off">
+            <div class="field-hint">Le préfixe CMD-2026-04- sera ajouté automatiquement</div>
+            <div class="field-error" id="err-order-number">Obligatoire</div>
+          </div>
+          <div class="field">
+            <label>N° commande complet (aperçu)</label>
+            <input type="text" id="inp-order-preview" readonly>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Email du client <span class="req">*</span></label>
+          <input type="email" id="inp-client-email" placeholder="client@email.fr">
+          <div class="field-error" id="err-client-email">Email valide requis</div>
+        </div>
+
+        <div class="field">
+          <label>Prénom du client</label>
+          <input type="text" id="inp-client-name" placeholder="ex. Marie">
+          <div class="field-hint">Pour personnaliser l'email envoyé au client</div>
+        </div>
+
+        <div class="field">
+          <label>Nombre de codes à générer <span class="req">*</span></label>
+          <div class="qty-wrap">
+            <button class="qty-btn" id="qty-minus" type="button">−</button>
+            <div class="qty-display" id="qty-value">1</div>
+            <button class="qty-btn" id="qty-plus" type="button">+</button>
+            <div class="qty-label">code(s) = bijou(x) Confidente</div>
+          </div>
+        </div>
+
+        <button class="btn btn-gold" id="btn-generate-codes" type="button">✦ Générer les codes et préparer l'email →</button>
+      </div>
+
+      <!-- Résultat : codes générés + aperçu email -->
+      <div id="result-codes-wrap" style="display:none;">
+        <div class="card" id="card-codes-result">
+          <div class="card-title">Codes générés</div>
+          <div class="card-sub">Ces codes seront transmis au client</div>
+          <div class="codes-list" id="codes-list"></div>
+          <div style="margin-top:1rem;padding:.8rem;background:rgba(39,174,96,.05);border:1px solid rgba(39,174,96,.2);font-size:.72rem;color:var(--ok);">
+            ✓ Codes enregistrés sur le serveur. Chaque code est à usage unique.
+          </div>
+        </div>
+
+        <!-- Aperçu email -->
+        <div class="card">
+          <div class="card-title">Aperçu de l'email client</div>
+          <div class="card-sub">Voici ce que recevra le client</div>
+
+          <div class="email-preview">
+            <div class="email-preview-header">✦ Email à envoyer au client</div>
+            <div class="email-subject" id="email-subject-preview"></div>
+            <div class="email-body" id="email-body-preview"></div>
+          </div>
+
+          <div style="display:flex;gap:.7rem;flex-wrap:wrap;margin-top:1rem;">
+            <button class="btn btn-primary btn-sm btn-icon" id="btn-open-mailto" type="button">📧 Ouvrir dans Gmail / Mail</button>
+            <button class="btn btn-sm btn-icon" id="btn-copy-email" type="button">📋 Copier le contenu</button>
+          </div>
+
+          <div class="alert alert-success" id="copy-success" style="margin-top:.8rem;">✓ Contenu copié dans le presse-papier !</div>
+
+          <div style="margin-top:1rem;padding:.8rem;background:rgba(139,105,20,.04);border:1px solid rgba(139,105,20,.15);font-size:.68rem;color:var(--text-m);line-height:1.6;">
+            <strong style="color:var(--dark);">Note :</strong> Le bouton "Ouvrir dans Gmail" ouvre votre application email avec tout le contenu pré-rempli. Il vous reste juste à cliquer "Envoyer". Si ça ne fonctionne pas, utilisez "Copier le contenu" et collez-le dans votre email.
+          </div>
+        </div>
+
+        <div style="display:flex;gap:.7rem;margin-top:.5rem;">
+          <button class="btn btn-sm" id="btn-nouvelle-commande-reset" type="button">← Nouvelle commande</button>
+          <button class="btn btn-sm btn-icon" id="btn-voir-historique-after" type="button">◇ Voir l'historique</button>
+        </div>
+      </div>
+
+      <div class="spinner-wrap" id="generate-spinner">
+        <div class="spinner"></div>
+        <div class="spinner-text">Génération des codes en cours…</div>
+      </div>
+    </div>
+
+    <!-- ── VUE HISTORIQUE ──────────────────────────────────── -->
+    <div id="vue-historique" class="fade-in" style="display:none;">
+      <div style="margin-bottom:1.5rem;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:.8rem;">
+        <div>
+          <div class="section-title">Historique des commandes</div>
+          <div class="section-sub">Toutes les commandes générées</div>
+        </div>
+        <button class="btn btn-sm btn-icon" id="btn-refresh-history" type="button">↺ Actualiser</button>
+      </div>
+
+      <div class="spinner-wrap" id="history-spinner">
+        <div class="spinner"></div>
+        <div class="spinner-text">Chargement de l'historique…</div>
+      </div>
+
+      <div class="card" id="history-card">
+        <div id="history-table-wrap">
+          <div class="history-empty" id="history-empty">Aucune commande pour l'instant.</div>
+          <table class="history-table" id="history-table" style="display:none;">
+            <thead>
+              <tr>
+                <th>Commande</th>
+                <th>Client</th>
+                <th>Codes</th>
+                <th>Statut</th>
+                <th>Date</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══ OVERLAY DÉTAIL COMMANDE ════════════════════════════════ -->
+<div class="overlay" id="overlay-detail">
+  <div class="overlay-inner">
+    <div class="overlay-header">
+      <span>Détail de la commande</span>
+      <button class="overlay-close" id="overlay-close" type="button">✕</button>
+    </div>
+    <div class="overlay-body" id="overlay-body"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+// ── CONFIG ────────────────────────────────────────────────────────
+const ACCESS_CODE  = 'Confident6L';
+const RENDER_URL   = 'https://alnae-confidente-1.onrender.com';
+const FORM_URL     = 'https://alnae-confidente-1.onrender.com'; // URL du formulaire client
+const ADMIN_SECRET = 'ALNAE-ADMIN-2026'; // doit correspondre à la variable Render
+
+// ── UTILITAIRES ───────────────────────────────────────────────────
+const g   = id => document.getElementById(id);
+const show = id => { const e=g(id); if(e)e.style.display=''; };
+const hide = id => { const e=g(id); if(e)e.style.display='none'; };
+const setText = (id,v) => { const e=g(id); if(e)e.textContent=v??''; };
+const setHtml = (id,v) => { const e=g(id); if(e)e.innerHTML=v??''; };
+function setErr(id,show,text=''){const e=g(id);if(!e)return;if(text)e.textContent=text;e.classList.toggle('show',!!show);}
+function setInpErr(id,show){const e=g(id);if(e)e.classList.toggle('err',!!show);}
+function showAlert(id,msg,type='success'){
+  const e=g(id);if(!e)return;
+  e.className='alert alert-'+type+' show';
+  e.textContent=msg;
+  setTimeout(()=>e.classList.remove('show'),4000);
+}
+
+// Préfixe commande
+function getPrefix(){
+  const n=new Date();
+  return 'CMD-'+n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-';
+}
+
+// Générer un code client unique (format : CL-XXXXXXXX)
+function generateClientCode(){
+  const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code='CL-';
+  for(let i=0;i<8;i++)code+=chars[Math.floor(Math.random()*chars.length)];
+  return code;
+}
+
+// ── ÉTAT ──────────────────────────────────────────────────────────
+let currentQty = 1;
+let generatedCodes = [];
+let currentOrderData = null;
+
+// ── LOGIN ─────────────────────────────────────────────────────────
+g('login-code')?.addEventListener('keydown', e => { if(e.key==='Enter')doLogin(); });
+g('btn-login')?.addEventListener('click', doLogin);
+
+function doLogin(){
+  const code = g('login-code').value;
+  if(code === ACCESS_CODE){
+    g('page-login').classList.remove('active');
+    g('page-dashboard').classList.add('active');
+    g('login-code').value='';
+    g('login-error').classList.remove('show');
+    loadStats();
+    showVue('accueil');
+  } else {
+    g('login-error').classList.add('show');
+    g('login-code').value='';
+    g('login-code').focus();
+  }
+}
+
+g('btn-logout')?.addEventListener('click', () => {
+  g('page-dashboard').classList.remove('active');
+  g('page-login').classList.add('active');
+});
+
+// ── NAVIGATION ────────────────────────────────────────────────────
+function showVue(name){
+  ['accueil','nouvelle','historique'].forEach(n=>{
+    const el=g('vue-'+n);if(el)el.style.display=n===name?'block':'none';
+    const btn=g('nav-'+n);if(btn)btn.classList.toggle('active',n===name);
+  });
+  if(name==='historique')loadHistory();
+  if(name==='accueil')loadStats();
+}
+
+g('nav-accueil')?.addEventListener('click',()=>showVue('accueil'));
+g('nav-nouvelle')?.addEventListener('click',()=>showVue('nouvelle'));
+g('nav-historique')?.addEventListener('click',()=>showVue('historique'));
+g('quick-nouvelle')?.addEventListener('click',()=>showVue('nouvelle'));
+g('quick-historique')?.addEventListener('click',()=>showVue('historique'));
+g('btn-voir-historique-after')?.addEventListener('click',()=>showVue('historique'));
+g('btn-nouvelle-commande-reset')?.addEventListener('click',resetNouvelle);
+g('btn-refresh-history')?.addEventListener('click',loadHistory);
+
+// ── PRÉFIXE COMMANDE DYNAMIQUE ────────────────────────────────────
+g('inp-order-number')?.addEventListener('input', function(){
+  const preview = g('inp-order-preview');
+  if(preview) preview.value = this.value.trim() ? getPrefix()+this.value.trim() : '';
+});
+
+// ── QUANTITÉ ──────────────────────────────────────────────────────
+g('qty-minus')?.addEventListener('click',()=>{
+  if(currentQty>1){currentQty--;setText('qty-value',currentQty);}
+});
+g('qty-plus')?.addEventListener('click',()=>{
+  if(currentQty<100){currentQty++;setText('qty-value',currentQty);}
+});
+
+// ── GÉNÉRER LES CODES ─────────────────────────────────────────────
+g('btn-generate-codes')?.addEventListener('click', generateCodes);
+
+async function generateCodes(){
+  const orderSuffix = g('inp-order-number').value.trim();
+  const clientEmail = g('inp-client-email').value.trim();
+  const clientName  = g('inp-client-name').value.trim();
+  const msgAccomp   = '';
+  let ok = true;
+
+  setErr('err-order-number',!orderSuffix);setInpErr('inp-order-number',!orderSuffix);if(!orderSuffix)ok=false;
+  const emailOk = clientEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail);
+  setErr('err-client-email',!emailOk);setInpErr('inp-client-email',!emailOk);if(!emailOk)ok=false;
+  if(!ok)return;
+
+  const orderNumber = getPrefix()+orderSuffix;
+
+  // Générer les codes localement
+  generatedCodes = [];
+  for(let i=1;i<=currentQty;i++){
+    generatedCodes.push({
+      code: generateClientCode(),
+      index: i,
+      status: 'available'
+    });
+  }
+
+  show('generate-spinner');
+  g('btn-generate-codes').disabled = true;
+
+  // Envoyer au serveur Render
+  let serverOk = false;
+  try{
+    const resp = await fetch(RENDER_URL+'/admin/create-order',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        adminSecret: ADMIN_SECRET,
+        orderNumber,
+        clientEmail,
+        clientName: clientName||'',
+        codes: generatedCodes.map(c=>c.code),
+        messageAccompagnement: msgAccomp
+      })
+    });
+    serverOk = resp.ok;
+    if(!serverOk){
+      const d = await resp.json();
+      console.warn('Render error:',d.message);
+    }
+  }catch(err){
+    console.warn('Render indisponible - codes générés localement uniquement');
+  }
+
+  hide('generate-spinner');
+  g('btn-generate-codes').disabled = false;
+
+  // Sauvegarder dans l'historique local
+  currentOrderData = {orderNumber, clientEmail, clientName, codes:generatedCodes, msgAccomp, createdAt:new Date().toISOString(), serverSaved:serverOk};
+  saveToLocalHistory(currentOrderData);
+
+  // Afficher les codes générés
+  renderCodesResult(orderNumber, clientEmail, clientName, generatedCodes, msgAccomp);
+  show('result-codes-wrap');
+  g('card-form-commande').style.display='none';
+  g('result-codes-wrap').scrollIntoView({behavior:'smooth'});
+}
+
+function renderCodesResult(orderNumber, clientEmail, clientName, codes, msgAccomp){
+  // Liste des codes
+  const codesHtml = codes.map(c=>`
+    <div class="code-item">
+      <div>
+        <div class="code-index">Code ${c.index} / ${codes.length}</div>
+        <div class="code-value">${c.code}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:.5rem;">
+        <button onclick="copyCode('${c.code}',this)" style="font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:.3rem .7rem;border:1px solid var(--lin-border);background:white;color:var(--text-m);cursor:pointer;font-family:'Raleway',sans-serif;transition:all .2s;" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--lin-border)'">Copier</button>
+        <div class="code-status status-available">Disponible</div>
+      </div>
+    </div>
+  `).join('');
+  setHtml('codes-list', codesHtml);
+
+  // ── EMAIL PROFESSIONNEL ALNAÉ — VERSION UNIQUE ────────────────
+  const subject = `ALNAÉ Infinity ✦ Votre expérience Confidente — Commande ${orderNumber}`;
+  setText('email-subject-preview', `Objet : ${subject}`);
+
+  const CONTACT_EMAIL = 'contact.alnae@gmail.com';
+  const formUrl = FORM_URL;
+
+  // HTML pour l'aperçu dans l'espace interne
+  const codesEmailHtml = codes.map(c=>`
+    <div style="margin:.6rem 0;">
+      <div style="font-size:.68rem;color:#8A7A60;letter-spacing:1px;text-transform:uppercase;margin-bottom:.3rem;">Code ${c.index} sur ${codes.length}</div>
+      <div class="email-code-block">${c.code}</div>
+    </div>
+  `).join('');
+
+  const bodyHtml = `
+    <p style="color:#1C1408;">Bonjour${clientName?' <strong>'+clientName+'</strong>':''}, </p>
+    <p>Nous vous remercions chaleureusement pour votre commande <strong>${orderNumber}</strong> auprès d'ALNAÉ Infinity.</p>
+    <p>Vous avez choisi la collection <strong>Confidente</strong> — une expérience unique où chaque bijou devient le messager d'une émotion que vous souhaitez transmettre.</p>
+    <p>Pour personnaliser ${codes.length > 1 ? 'chacun de vos '+codes.length+' bijoux' : 'votre bijou'}, nous vous avons préparé ${codes.length > 1 ? codes.length+' codes personnels exclusifs' : 'un code personnel exclusif'} :</p>
+    ${codesEmailHtml}
+    <p><strong>Comment créer votre message :</strong></p>
+    <ol style="line-height:2;">
+      <li>Rendez-vous sur notre espace dédié : <a href="${formUrl}" class="email-link">${formUrl}</a></li>
+      <li>Saisissez votre code unique — votre numéro de commande <strong>${orderNumber}</strong> sera pré-rempli</li>
+      <li>Composez votre message : texte, photo, audio ou vidéo selon votre envie</li>
+      <li>Prévisualisez votre message, puis scellez-le lorsqu'il vous convient</li>
+    </ol>
+    <div style="background:#F8F4EE;border-left:3px solid #8B6914;padding:12px 16px;margin:12px 0;font-size:.85rem;">
+      <strong>Important :</strong> Chaque code est strictement personnel et valable une seule fois. Une fois votre message scellé, il ne pourra plus être modifié. Nous vous invitons à relire attentivement votre message avant de le valider.
+    </div>
+    <p>Après réception de votre message, nous le traiterons personnellement sous <strong>24 à 48h ouvrées</strong>. Votre bijou vous sera ensuite expédié rapidement par La Poste et vous recevrez un email de confirmation de suivi.</p>
+    <p>Pour toute question relative à votre commande, n'hésitez pas à nous contacter en indiquant votre numéro <strong>${orderNumber}</strong> à l'adresse : <a href="mailto:${CONTACT_EMAIL}" class="email-link">${CONTACT_EMAIL}</a></p>
+    <p style="margin-top:1.2rem;font-style:italic;color:#8A7A60;font-size:.85rem;">Toute l'équipe ALNAÉ Infinity vous souhaite une belle expérience Confidente. ✦</p>
+    <p style="font-style:italic;color:#8A7A60;font-size:.85rem;">ALNAÉ Infinity — Collection Confidente<br><a href="https://www.alnaeinfinity.com" class="email-link">www.alnaeinfinity.com</a></p>
+  `;
+  setHtml('email-body-preview', bodyHtml);
+
+  // Corps pour mailto (texte brut)
+  const mailtoBody = buildMailtoBody(orderNumber, clientName, codes, formUrl, CONTACT_EMAIL);
+
+  g('btn-open-mailto').onclick = () => {
+    window.location.href = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(mailtoBody)}`;
+  };
+
+  g('btn-copy-email').onclick = () => {
+    const fullText = `Objet : ${subject}\n\n${mailtoBody}`;
+    navigator.clipboard.writeText(fullText).then(()=>{
+      g('copy-success').classList.add('show');
+      setTimeout(()=>g('copy-success').classList.remove('show'),3000);
+    }).catch(()=>prompt('Copier ce texte :', fullText));
+  };
+}
+
+function buildMailtoBody(orderNumber, clientName, codes, formUrl, contactEmail){
+  const codesText = codes.map(c=>`  Code ${c.index} sur ${codes.length} : ${c.code}`).join('\n');
+  const nbBijoux = codes.length > 1 ? `vos ${codes.length} bijoux` : 'votre bijou';
+  return `Bonjour${clientName ? ' ' + clientName : ''},
+
+Nous vous remercions chaleureusement pour votre commande ${orderNumber} auprès d'ALNAÉ Infinity.
+
+Vous avez choisi la collection Confidente — une expérience unique où chaque bijou devient le messager d'une émotion que vous souhaitez transmettre.
+
+Pour personnaliser ${nbBijoux}, nous vous avons préparé ${codes.length > 1 ? codes.length + ' codes personnels exclusifs' : 'un code personnel exclusif'} :
+
+${codesText}
+
+COMMENT CRÉER VOTRE MESSAGE :
+
+1. Rendez-vous sur notre espace dédié : ${formUrl}
+2. Saisissez votre code unique — votre numéro de commande ${orderNumber} sera pré-rempli automatiquement
+3. Composez votre message : texte, photo, audio ou vidéo selon votre envie
+4. Prévisualisez votre message, puis scellez-le lorsqu'il vous convient
+
+IMPORTANT : Chaque code est strictement personnel et valable une seule fois. Une fois votre message scellé, il ne pourra plus être modifié. Nous vous invitons à relire attentivement votre message avant de le valider.
+
+Après réception de votre message, nous le traiterons personnellement sous 24 à 48h ouvrées. Votre bijou vous sera ensuite expédié rapidement par La Poste et vous recevrez un email de confirmation de suivi.
+
+Pour toute question relative à votre commande, n'hésitez pas à nous contacter en indiquant votre numéro ${orderNumber} à l'adresse : ${contactEmail}
+
+Toute l'équipe ALNAÉ Infinity vous souhaite une belle expérience Confidente. ✦
+
+ALNAÉ Infinity — Collection Confidente
+www.alnaeinfinity.com`;
+}
+
+// ── COPIER CODE ──────────────────────────────────────────────────
+window.copyCode = function(code, btn) {
+  navigator.clipboard.writeText(code).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copié';
+    btn.style.color = 'var(--ok)';
+    btn.style.borderColor = 'var(--ok)';
+    setTimeout(() => { btn.textContent = orig; btn.style.color = ''; btn.style.borderColor = ''; }, 1500);
+  }).catch(() => {
+    prompt('Copiez ce code :', code);
+  });
+};
+
+// ── RESET FORMULAIRE NOUVELLE COMMANDE ───────────────────────────
+function resetNouvelle(){
+  g('inp-order-number').value='';
+  g('inp-order-preview').value='';
+  g('inp-client-email').value='';
+  g('inp-client-name').value='';
+  currentQty=1;setText('qty-value','1');
+  generatedCodes=[];currentOrderData=null;
+  g('card-form-commande').style.display='';
+  hide('result-codes-wrap');
+}
+
+// ── HISTORIQUE LOCAL ──────────────────────────────────────────────
+function saveToLocalHistory(orderData){
+  let history = getLocalHistory();
+  history.unshift(orderData);
+  if(history.length>100)history=history.slice(0,100);
+  try{localStorage.setItem('alnae_history',JSON.stringify(history));}catch(_){};
+}
+function getLocalHistory(){
+  try{return JSON.parse(localStorage.getItem('alnae_history')||'[]');}catch(_){return [];}
+}
+
+async function loadHistory(){
+  g('history-spinner').classList.add('show');
+  hide('history-table');
+  g('history-empty').style.display='none';
+
+  let orders = [];
+
+  // Essayer de charger depuis Render
+  try{
+    const resp = await fetch(RENDER_URL+'/admin/orders?secret='+ADMIN_SECRET);
+    if(resp.ok){
+      const data = await resp.json();
+      orders = data.orders || [];
+    }
+  }catch(_){
+    // Fallback local
+    orders = getLocalHistory();
+  }
+
+  g('history-spinner').classList.remove('show');
+
+  if(!orders.length){
+    g('history-empty').style.display='block';
+    return;
+  }
+
+  const tbody = g('history-tbody');
+  tbody.innerHTML = '';
+
+  orders.forEach(order=>{
+    const codes = order.codes||[];
+    const sealed = codes.filter(c=>c.status==='sealed').length;
+    const total  = codes.length;
+    const date   = order.createdAt ? new Date(order.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+
+    let badgeHtml='';
+    if(sealed===total&&total>0) badgeHtml='<span class="badge badge-sealed">Complet</span>';
+    else if(sealed>0) badgeHtml='<span class="badge badge-partial">Partiel</span>';
+    else badgeHtml='<span class="badge badge-ok">En attente</span>';
+
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td><span class="order-num">${order.orderNumber||'—'}</span></td>
+      <td><span class="client-email">${order.clientEmail||'—'}</span></td>
+      <td>${sealed}/${total} scellé(s)</td>
+      <td>${badgeHtml}</td>
+      <td style="font-size:.72rem;color:var(--text-d);">${date}</td>
+      <td><button class="btn btn-sm" onclick="showOrderDetail('${order.orderNumber}')">Détail</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  show('history-table');
+}
+
+// ── STATISTIQUES ──────────────────────────────────────────────────
+async function loadStats(){
+  try{
+    const resp = await fetch(RENDER_URL+'/admin/stats?secret='+ADMIN_SECRET);
+    if(resp.ok){
+      const data = await resp.json();
+      setText('stat-orders', data.totalOrders||0);
+      setText('stat-codes', data.totalCodes||0);
+      setText('stat-sealed', data.totalSealed||0);
+      setText('stat-pending', data.totalPending||0);
+      renderRecentOrders(data.recentOrders||[]);
+      return;
+    }
+  }catch(_){}
+  // Fallback local
+  const history = getLocalHistory();
+  let totalCodes=0,sealed=0;
+  history.forEach(o=>{
+    (o.codes||[]).forEach(c=>{
+      totalCodes++;
+      if(c.status==='sealed')sealed++;
+    });
+  });
+  setText('stat-orders',history.length);
+  setText('stat-codes',totalCodes);
+  setText('stat-sealed',sealed);
+  setText('stat-pending',totalCodes-sealed);
+  renderRecentOrders(history.slice(0,5));
+}
+
+function renderRecentOrders(orders){
+  const wrap = g('recent-orders-wrap');
+  if(!wrap)return;
+  if(!orders.length){wrap.innerHTML='<div class="history-empty">Aucune commande pour l\'instant.</div>';return;}
+  const html = orders.slice(0,5).map(o=>{
+    const codes=o.codes||[];
+    const sealed=codes.filter(c=>c.status==='sealed').length;
+    const date=o.createdAt?new Date(o.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'}):'—';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:.65rem 0;border-bottom:1px solid rgba(200,186,160,.3);">
+      <div>
+        <div style="font-family:monospace;font-size:.85rem;color:var(--dark);font-weight:bold;">${o.orderNumber||'—'}</div>
+        <div style="font-size:.68rem;color:var(--text-d);">${o.clientEmail||'—'} · ${codes.length} code(s)</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:.65rem;color:var(--text-d);">${date}</div>
+        <div style="font-size:.65rem;color:${sealed>0?'var(--ok)':'var(--text-d)'};">${sealed}/${codes.length} scellé(s)</div>
+      </div>
+    </div>`;
+  }).join('');
+  wrap.innerHTML=html;
+}
+
+// ── DÉTAIL COMMANDE ───────────────────────────────────────────────
+window.showOrderDetail = function(orderNumber){
+  // Chercher dans historique local ou Render
+  const history=getLocalHistory();
+  const order=history.find(o=>o.orderNumber===orderNumber);
+  if(!order){g('overlay-body').innerHTML='<p style="color:var(--text-d);font-size:.8rem;">Données détaillées disponibles uniquement sur le serveur.</p>';g('overlay-detail').classList.add('show');return;}
+
+  const codes=order.codes||[];
+  const codesHtml=codes.map(c=>`
+    <div class="code-item" style="margin-bottom:.4rem;">
+      <div>
+        <div class="code-index">Code ${c.index||''}</div>
+        <div class="code-value">${c.code}</div>
+      </div>
+      <div class="code-status ${c.status==='sealed'?'status-sealed':'status-available'}">${c.status==='sealed'?'Scellé':'Disponible'}</div>
+    </div>
+  `).join('');
+
+  g('overlay-body').innerHTML=`
+    <div style="margin-bottom:1rem;">
+      <div style="font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-d);margin-bottom:.3rem;">Numéro de commande</div>
+      <div style="font-family:monospace;font-size:1.1rem;font-weight:bold;color:var(--dark);">${order.orderNumber}</div>
+    </div>
+    <div style="margin-bottom:1rem;">
+      <div style="font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-d);margin-bottom:.3rem;">Email client</div>
+      <div style="font-size:.88rem;color:var(--text-m);">${order.clientEmail}</div>
+    </div>
+    <div style="margin-bottom:1.2rem;">
+      <div style="font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-d);margin-bottom:.6rem;">Codes générés</div>
+      ${codesHtml}
+    </div>
+    <div style="font-size:.68rem;color:var(--text-d);border-top:1px solid var(--lin-border);padding-top:.8rem;">
+      Créé le ${order.createdAt?new Date(order.createdAt).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—'}
+    </div>
+  `;
+  g('overlay-detail').classList.add('show');
+};
+
+g('overlay-close')?.addEventListener('click',()=>g('overlay-detail').classList.remove('show'));
+g('overlay-detail')?.addEventListener('click',e=>{if(e.target===g('overlay-detail'))g('overlay-detail').classList.remove('show');});
+
+})();
+</script>
+</body>
+</html>
