@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALNAÉ Confidente — Déposer un message</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&family=Raleway:wght@200;300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --lin:#F2EDE3;--lin-mid:#EDE8DC;--lin-soft:#E8E2D4;--lin-border:#C8BAA0;
+  --gold:#8B6914;--gold-b:#A07820;--gold-d:#6B5010;
+  --dark:#1C1408;--dark2:#3A2C18;
+  --text:#1C1408;--text-m:#5A4A2A;--text-d:#8A7A60;
+  --err:#C0392B;--ok:#27AE60;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{background:var(--lin);color:var(--text);font-family:'Raleway',sans-serif;font-weight:300;min-height:100vh;-webkit-font-smoothing:antialiased;}
+body::before{content:'';position:fixed;top:-30vh;left:50%;transform:translateX(-50%);width:600px;height:400px;background:radial-gradient(ellipse,rgba(139,105,20,.04) 0%,transparent 70%);pointer-events:none;z-index:0;}
+
+header{text-align:center;padding:3rem 2rem 1.5rem;position:relative;z-index:1;}
+.brand-eyebrow{font-size:.6rem;letter-spacing:.5em;text-transform:uppercase;color:var(--gold);margin-bottom:.8rem;display:flex;align-items:center;justify-content:center;gap:1rem;}
+.brand-eyebrow::before,.brand-eyebrow::after{content:'';width:40px;height:1px;background:var(--gold-d);}
+.collection-title{font-family:'Playfair Display',serif;font-size:3.5rem;font-weight:400;font-style:italic;color:var(--dark);line-height:.95;letter-spacing:-.01em;margin-bottom:.4rem;}
+.tagline{font-size:.62rem;letter-spacing:.35em;text-transform:uppercase;color:var(--text-m);}
+
+.container{max-width:580px;margin:0 auto;padding:0 1.2rem 5rem;position:relative;z-index:1;}
+
+/* PAGES */
+.page{display:none;animation:fadeUp .4s ease both;}
+.page.active{display:block;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+/* STEPS */
+.steps{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-bottom:1.5rem;}
+.step-dot{width:6px;height:6px;border-radius:50%;background:var(--lin-border);transition:all .3s;}
+.step-dot.active{background:var(--gold);width:20px;border-radius:3px;}
+
+/* CARD */
+.card{background:rgba(255,252,248,.9);border:1px solid var(--lin-border);border-radius:1px;padding:2rem 1.8rem;position:relative;overflow:hidden;margin-bottom:.8rem;}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+.card-title{font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:400;color:var(--dark);margin-bottom:.2rem;}
+.card-subtitle{font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-d);margin-bottom:1.8rem;}
+
+/* FIELDS */
+.field{margin-bottom:1.1rem;}
+.field label{display:block;font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);margin-bottom:.45rem;font-weight:400;}
+.req{color:var(--gold);}
+.field input,.field textarea{width:100%;padding:.8rem 1rem;border:1px solid var(--lin-border);border-radius:1px;background:rgba(255,252,248,.9);font-family:'Raleway',sans-serif;font-size:.88rem;font-weight:300;color:var(--dark);transition:border-color .2s,box-shadow .2s;outline:none;-webkit-appearance:none;}
+.field input::placeholder,.field textarea::placeholder{color:var(--text-d);}
+.field input:focus,.field textarea:focus{border-color:var(--gold-d);box-shadow:0 0 0 3px rgba(139,105,20,.07);}
+.field input.err{border-color:var(--err);}
+.field input[readonly]{background:var(--lin-soft);color:var(--text-d);cursor:default;font-family:monospace;letter-spacing:.05em;}
+.field textarea{resize:vertical;min-height:110px;line-height:1.75;}
+.field-error{font-size:.65rem;color:var(--err);margin-top:.3rem;display:none;}
+.field-error.show{display:block;}
+.char-count{text-align:right;font-size:.62rem;color:var(--text-d);margin-top:.25rem;}
+.field-hint{font-size:.62rem;color:var(--text-d);margin-top:.3rem;line-height:1.5;}
+
+/* CODE CLIENT */
+.code-entry-wrap{text-align:center;padding:1.5rem 0;}
+.code-icon{font-size:2rem;color:var(--gold);margin-bottom:.8rem;}
+.code-input-large{width:100%;padding:1rem 1.2rem;border:1.5px solid var(--lin-border);background:rgba(255,252,248,.95);font-family:monospace;font-size:1.1rem;letter-spacing:.2em;text-align:center;color:var(--dark);outline:none;transition:border-color .2s,box-shadow .2s;text-transform:uppercase;-webkit-appearance:none;}
+.code-input-large:focus{border-color:var(--gold-d);box-shadow:0 0 0 3px rgba(139,105,20,.07);}
+.code-input-large.err{border-color:var(--err);}
+
+/* ORDER BADGE */
+.order-badge{background:var(--dark);color:var(--gold);padding:.5rem 1rem;font-family:monospace;font-size:.9rem;letter-spacing:.15em;display:inline-block;margin:.3rem 0;}
+
+/* PILLS */
+.pill-group{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.7rem;}
+.pill{padding:.3rem .8rem;border:1px solid var(--lin-border);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-m);cursor:pointer;transition:all .2s;background:transparent;user-select:none;font-family:'Raleway',sans-serif;font-weight:400;}
+.pill:hover{border-color:var(--gold-d);color:var(--gold);}
+.pill.active{background:var(--gold);border-color:var(--gold);color:var(--lin);}
+
+/* OPTION BLOCKS */
+.option-block{border:1px solid var(--lin-border);margin-bottom:.6rem;overflow:hidden;transition:border-color .3s;background:rgba(255,252,248,.85);}
+.option-block.on{border-color:var(--gold-d);box-shadow:0 0 20px rgba(139,105,20,.06);}
+.option-header{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.1rem;user-select:none;}
+.option-left{display:flex;align-items:center;gap:.8rem;}
+.option-icon{font-size:1rem;opacity:.7;}
+.option-title{font-size:.75rem;font-weight:400;color:var(--dark);letter-spacing:.03em;}
+.option-desc{font-size:.62rem;color:var(--text-d);margin-top:.1rem;}
+.option-body{padding:1rem 1.1rem;border-top:1px solid var(--lin-border);display:none;}
+.option-body.open{display:block;}
+
+/* TOGGLE */
+.toggle{position:relative;width:36px;height:20px;flex-shrink:0;}
+.toggle input{opacity:0;width:0;height:0;}
+.slider{position:absolute;inset:0;background:var(--lin-soft);border:1px solid var(--lin-border);border-radius:10px;cursor:pointer;transition:.3s;}
+.slider::before{content:'';position:absolute;width:14px;height:14px;left:2px;top:2px;background:var(--text-d);border-radius:50%;transition:.3s;}
+.toggle input:checked+.slider{background:var(--gold);border-color:var(--gold);}
+.toggle input:checked+.slider::before{background:var(--lin);transform:translateX(16px);}
+
+/* SUGGESTIONS */
+.suggestions-box{background:var(--lin-soft);border:1px solid var(--lin-border);padding:.8rem;margin-top:.6rem;}
+.sug-title{font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-d);margin-bottom:.6rem;font-weight:400;}
+.sug-item{display:flex;align-items:flex-start;gap:.6rem;padding:.4rem 0;border-bottom:1px solid var(--lin-border);cursor:pointer;}
+.sug-item:last-child{border-bottom:none;}
+.sug-item input[type=checkbox]{width:14px;height:14px;min-width:14px;margin-top:3px;accent-color:var(--gold);cursor:pointer;flex-shrink:0;}
+.sug-item span{font-size:.78rem;font-family:'Playfair Display',serif;font-style:italic;color:var(--dark2);line-height:1.5;}
+
+/* RGPD */
+.rgpd-box{background:var(--lin-soft);border:1px solid var(--lin-border);padding:.9rem 1.1rem;margin:.9rem 0;font-size:.7rem;line-height:1.7;color:var(--text-m);}
+.rgpd-box strong{color:var(--dark);font-weight:400;}
+.rgpd-row{display:flex;align-items:flex-start;gap:.65rem;margin-top:.7rem;}
+.rgpd-row input[type=checkbox]{width:15px;height:15px;min-width:15px;flex-shrink:0;margin-top:2px;cursor:pointer;accent-color:var(--gold);}
+.rgpd-row span{font-size:.68rem;color:var(--text);line-height:1.5;cursor:pointer;}
+
+/* ALERTS */
+.alert-box{padding:.75rem 1rem;font-size:.72rem;line-height:1.5;margin-bottom:.9rem;display:none;border-left:2px solid;}
+.alert-box.show{display:block;}
+.alert-error{background:rgba(192,57,43,.06);border-color:var(--err);color:var(--err);}
+.alert-success{background:rgba(39,174,96,.06);border-color:var(--ok);color:var(--ok);}
+
+/* INFO ROW */
+.info-row{display:flex;gap:.6rem;align-items:flex-start;font-size:.68rem;color:var(--text-m);margin-bottom:1rem;}
+.info-row.tip{background:rgba(139,105,20,.04);border:1px solid rgba(139,105,20,.12);padding:.65rem .9rem;}
+
+/* BUTTONS */
+.btn{display:block;width:100%;padding:1rem;background:transparent;color:var(--dark);border:1px solid var(--lin-border);font-family:'Raleway',sans-serif;font-size:.6rem;font-weight:500;letter-spacing:.3em;text-transform:uppercase;cursor:pointer;transition:all .3s;margin-top:.9rem;}
+.btn:hover{border-color:var(--text-m);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-primary{background:var(--dark);color:var(--lin);border-color:var(--dark);}
+.btn-primary:hover:not(:disabled){background:#2A2010;}
+.btn-gold{background:var(--gold);color:var(--lin);border-color:var(--gold);}
+.btn-gold:hover:not(:disabled){background:var(--gold-b);}
+
+/* PIN */
+.pin-wrap{display:flex;gap:.5rem;justify-content:center;margin:.9rem 0;}
+.pin-digit{width:50px;height:58px;border:1px solid var(--lin-border);background:rgba(255,252,248,.9);font-family:'Playfair Display',serif;font-size:1.6rem;text-align:center;color:var(--dark);outline:none;transition:border-color .2s;-webkit-appearance:none;}
+.pin-digit:focus{border-color:var(--gold-d);box-shadow:0 0 0 3px rgba(139,105,20,.08);}
+.pin-hint{font-size:.63rem;color:var(--text-d);text-align:center;line-height:1.5;letter-spacing:.05em;}
+
+/* MÉDIAS */
+.media-upload-area{border:1px dashed var(--lin-border);padding:1.5rem 1rem;text-align:center;cursor:pointer;transition:all .2s;position:relative;}
+.media-upload-area:hover,.media-upload-area.drag-over{border-color:var(--gold-d);}
+.media-upload-area input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.media-upload-icon{font-size:1.4rem;display:block;margin-bottom:.5rem;opacity:.45;}
+.media-upload-label{font-size:.7rem;color:var(--text-m);line-height:1.6;}
+.media-upload-label strong{color:var(--gold);display:block;font-size:.72rem;font-weight:400;letter-spacing:.05em;}
+.media-types{display:flex;gap:.4rem;justify-content:center;flex-wrap:wrap;margin-top:.6rem;}
+.media-type-badge{font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;padding:.2rem .5rem;border:1px solid var(--lin-border);color:var(--text-d);}
+.media-previews{display:flex;flex-direction:column;gap:.5rem;margin-top:.8rem;}
+.media-item{display:flex;align-items:center;gap:.7rem;background:var(--lin-soft);border:1px solid var(--lin-border);padding:.6rem .8rem;}
+.media-item-info{flex:1;min-width:0;}
+.media-item-name{font-size:.72rem;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.media-item-size{font-size:.62rem;color:var(--text-d);margin-top:.1rem;}
+.media-item-remove{background:none;border:none;color:var(--text-d);cursor:pointer;font-size:.9rem;padding:.2rem;flex-shrink:0;}
+.media-item-remove:hover{color:var(--err);}
+.media-item-preview{width:44px;height:44px;object-fit:cover;flex-shrink:0;border:1px solid var(--lin-border);}
+.media-limit-info{font-size:.62rem;color:var(--text-d);text-align:center;margin-top:.5rem;line-height:1.5;}
+.media-error{font-size:.65rem;color:var(--err);margin-top:.3rem;display:none;}
+.media-error.show{display:block;}
+
+/* PREVIEW OVERLAY */
+.preview-overlay{display:none;position:fixed;inset:0;background:rgba(28,20,8,.72);z-index:1000;overflow-y:auto;padding:2rem 1rem;backdrop-filter:blur(4px);}
+.preview-overlay.show{display:flex;align-items:flex-start;justify-content:center;}
+.preview-inner{background:rgba(255,252,248,.98);border:1px solid var(--lin-border);max-width:520px;width:100%;position:relative;margin:auto;}
+.preview-inner::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+.preview-header{background:var(--dark);padding:.9rem 1.3rem;display:flex;align-items:center;justify-content:space-between;}
+.preview-header span{font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);}
+.preview-close{background:none;border:none;color:rgba(240,235,224,.7);font-size:1rem;cursor:pointer;padding:.2rem .4rem;}
+.preview-body{padding:1.8rem 1.4rem;}
+.preview-warning{background:rgba(139,105,20,.05);border:1px solid rgba(139,105,20,.15);padding:.7rem .9rem;margin-bottom:1.3rem;font-size:.68rem;color:var(--text-m);line-height:1.5;}
+
+/* REVEAL CONTENT */
+.reveal-center{text-align:center;}
+.jewel-icon{font-size:2.4rem;display:block;text-align:center;margin-bottom:.9rem;animation:pulse 4s ease-in-out infinite;}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+.occasion-badge{display:inline-block;padding:.25rem .9rem;border:1px solid var(--gold-d);font-size:.58rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);margin-bottom:1.1rem;}
+.recipient-name{font-family:'Playfair Display',serif;font-size:2.1rem;font-weight:400;font-style:italic;color:var(--dark);text-align:center;margin-bottom:.2rem;}
+.diamond-sep{display:flex;align-items:center;justify-content:center;gap:.7rem;padding:1rem 0;}
+.diamond-sep::before,.diamond-sep::after{content:'';width:60px;height:1px;background:var(--lin-border);}
+.diamond-sep span{width:4px;height:4px;background:var(--gold);transform:rotate(45deg);display:block;}
+.etym-block{border-left:1px solid var(--gold-d);padding:.8rem 1rem;margin:1rem 0;text-align:left;background:rgba(139,105,20,.03);}
+.etym-label{font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-d);margin-bottom:.3rem;}
+.etym-block p{font-family:'Playfair Display',serif;font-size:.95rem;font-style:italic;color:var(--dark2);line-height:1.8;white-space:pre-wrap;}
+.msg-block{background:var(--lin-soft);border:1px solid var(--lin-border);padding:1.4rem;margin:1rem 0;text-align:left;}
+.msg-block p{font-family:'Playfair Display',serif;font-size:1.05rem;line-height:1.9;color:var(--dark);white-space:pre-wrap;}
+.motiv-block{border:1px solid var(--gold-d);padding:.9rem 1.3rem;margin:1rem 0;text-align:center;background:rgba(139,105,20,.03);}
+.motiv-block p{font-family:'Playfair Display',serif;font-size:.9rem;font-style:italic;color:var(--gold);line-height:1.8;white-space:pre-wrap;}
+.from-line{font-size:.65rem;letter-spacing:.12em;color:var(--text-d);margin-top:.8rem;font-style:italic;text-align:center;}
+.alnae-footer{font-size:.58rem;letter-spacing:.18em;color:var(--text-d);text-transform:uppercase;text-align:center;margin-top:.5rem;}
+.alnae-footer a{color:var(--gold-d);text-decoration:none;}
+.badge-new{display:inline-block;background:var(--gold);color:var(--lin);font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.15rem .45rem;margin-left:.4rem;vertical-align:middle;font-weight:500;}
+
+/* SUCCESS */
+.success-icon{width:52px;height:52px;border:1px solid var(--gold-d);display:flex;align-items:center;justify-content:center;margin:0 auto 1.3rem;font-size:1.2rem;color:var(--gold);font-family:'Playfair Display',serif;font-style:italic;}
+
+/* SPINNER */
+.spinner-wrap{text-align:center;padding:.9rem;display:none;}
+.spinner-wrap.show{display:block;}
+.spinner{width:24px;height:24px;border:1px solid var(--lin-border);border-top-color:var(--gold);border-radius:50%;animation:spin .9s linear infinite;margin:0 auto .5rem;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner-text{font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-d);}
+
+/* CARTE */
+.carte-wrap{border:1px solid var(--lin-border);margin:1.2rem 0;overflow:hidden;}
+.carte-label{font-size:.58rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);padding:.6rem 1rem;background:rgba(139,105,20,.04);border-bottom:1px solid var(--lin-border);}
+.carte-preview{background:white;padding:1rem;display:flex;align-items:center;gap:1rem;}
+.carte-info{flex:1;min-width:140px;}
+.carte-brand-s{font-size:.55rem;letter-spacing:.28em;text-transform:uppercase;color:var(--gold);}
+.carte-title-s{font-family:'Playfair Display',serif;font-size:1rem;font-style:italic;color:var(--dark);margin-bottom:.35rem;}
+.carte-instr{font-size:.65rem;color:var(--text-m);line-height:1.6;margin-bottom:.5rem;}
+.carte-code-lbl{font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-d);margin-bottom:.2rem;}
+.carte-code-val{background:white;color:var(--dark);border:1.5px solid var(--dark);padding:.35rem .7rem;font-family:monospace;font-size:.9rem;letter-spacing:.15em;display:inline-block;font-weight:bold;}
+.carte-footer-s{font-size:.6rem;color:var(--text-d);text-align:center;padding:.5rem;border-top:1px solid var(--lin-soft);}
+
+/* EXPORT BUTTONS */
+.export-btns{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem;}
+.export-btn{flex:1;min-width:90px;padding:.65rem .5rem;font-family:'Raleway',sans-serif;font-size:.58rem;font-weight:500;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;border:1px solid var(--lin-border);background:white;color:var(--dark);transition:all .2s;}
+.export-btn:hover{border-color:var(--dark);}
+.export-btn-primary{background:var(--dark);color:white;border-color:var(--dark);}
+.export-btn-primary:hover{background:#2A2010;}
+
+/* CONFETTI */
+.confetti-wrap{position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden;}
+.cp{position:absolute;top:-10px;animation:fall linear forwards;opacity:0;}
+@keyframes fall{0%{opacity:1;transform:translateY(0) rotate(0)}100%{opacity:0;transform:translateY(100vh) rotate(720deg)}}
+
+@media(max-width:480px){
+  .collection-title{font-size:2.6rem;}
+  .card{padding:1.6rem 1.2rem;}
+  .pin-digit{width:42px;height:50px;font-size:1.4rem;}
+  .export-btns{flex-direction:column;}
+}
+</style>
+</head>
+<body>
+
+<div class="confetti-wrap" id="confetti"></div>
+
+<!-- APERÇU OVERLAY -->
+<div class="preview-overlay" id="preview-overlay">
+  <div class="preview-inner">
+    <div class="preview-header">
+      <span>Aperçu — Message Confidente</span>
+      <button class="preview-close" id="btn-close-preview" type="button">✕</button>
+    </div>
+    <div class="preview-body">
+      <div class="preview-warning">Voici exactement ce que verra le destinataire. Vérifiez avant de sceller.</div>
+      <div class="reveal-center">
+        <div id="prev-media-wrap" style="display:none;margin:0 0 1.2rem;"></div>
+        <span class="jewel-icon">◆</span>
+        <div id="prev-occ-wrap" style="display:none"><div class="occasion-badge" id="prev-occasion"></div></div>
+        <p class="recipient-name" id="prev-name"></p>
+        <div class="diamond-sep"><span></span></div>
+        <div class="spinner-wrap" id="prev-loading"><div class="spinner"></div><div class="spinner-text">Préparation…</div></div>
+        <div class="etym-block" id="prev-etym" style="display:none"><div class="etym-label">Essence du prénom</div><p id="prev-etym-text"></p></div>
+        <div class="msg-block" id="prev-msg-block" style="display:none"><p id="prev-message"></p></div>
+        <div class="motiv-block" id="prev-motiv-block" style="display:none"><p id="prev-motiv-text"></p></div>
+        <p class="from-line" id="prev-from"></p>
+        <div class="diamond-sep"><span></span></div>
+        <div class="alnae-footer">ALNAÉ Infinity — Collection Confidente<br><a href="https://www.alnaeinfinity.com" target="_blank">www.alnaeinfinity.com</a></div>
+      </div>
+      <button class="btn btn-gold" id="btn-confirm-seal" type="button" style="margin-top:1.3rem;">✦ Confirmer et sceller</button>
+      <button class="btn" id="btn-back-edit" type="button" style="margin-top:.5rem;">← Modifier</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="brand-eyebrow">ALNAÉ Infinity</div>
+  <h1 class="collection-title">Confidente</h1>
+  <p class="tagline">Le bijou qui porte votre voix</p>
+</header>
+
+<div class="container">
+
+  <!-- PAGE : SAISIR LE CODE CLIENT -->
+  <div class="page active" id="page-code">
+    <div class="card" style="text-align:center;">
+      <div class="code-entry-wrap">
+        <div class="code-icon">◆</div>
+        <h2 class="card-title" style="text-align:center;margin-bottom:.4rem;">Bienvenue</h2>
+        <p style="font-size:.75rem;color:var(--text-m);line-height:1.7;margin-bottom:1.5rem;">Saisissez le code unique reçu dans l'email ALNAÉ Infinity pour accéder à votre formulaire personnalisé.</p>
+        <div class="alert-box alert-error" id="err-code-box"></div>
+        <div class="field" style="text-align:left;">
+          <label>Votre code unique <span class="req">*</span></label>
+          <input class="code-input-large" type="text" id="client-code-input" placeholder="ex. CL-PWFNBRBH" autocomplete="off">
+          <div class="field-hint" style="text-align:left;">Ce code vous a été communiqué par email. Il est à usage unique.</div>
+        </div>
+        <button class="btn btn-primary" id="btn-validate-code" type="button" style="max-width:300px;margin:0 auto;">Accéder à mon formulaire →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE : FORMULAIRE PIN -->
+  <div class="page" id="page-pin">
+    <div class="steps"><div class="step-dot active"></div><div class="step-dot"></div><div class="step-dot"></div></div>
+    <div class="card">
+      <h2 class="card-title">Code confidentiel</h2>
+      <p class="card-subtitle">Étape 1 — Sécurisez votre message</p>
+      <div class="info-row tip"><span>◈</span><span>Choisissez un code à 4 chiffres. Le destinataire devra le saisir pour révéler votre message.</span></div>
+      <div class="field">
+        <label>N° de commande</label>
+        <input type="text" id="order-number-display" readonly>
+        <div class="field-hint">Numéro pré-rempli depuis votre commande. Non modifiable.</div>
+      </div>
+      <div class="field">
+        <label>Créez votre code <span class="req">*</span></label>
+        <div class="pin-wrap">
+          <input type="tel" class="pin-digit" id="pin1" maxlength="1" inputmode="numeric">
+          <input type="tel" class="pin-digit" id="pin2" maxlength="1" inputmode="numeric">
+          <input type="tel" class="pin-digit" id="pin3" maxlength="1" inputmode="numeric">
+          <input type="tel" class="pin-digit" id="pin4" maxlength="1" inputmode="numeric">
+        </div>
+        <div class="pin-hint">4 chiffres — mémorable pour vous, confidentiel pour les autres</div>
+        <div class="field-error" id="err-pin">4 chiffres requis</div>
+      </div>
+      <div class="field" style="margin-top:1rem;">
+        <label>Confirmez votre code <span class="req">*</span></label>
+        <div class="pin-wrap">
+          <input type="tel" class="pin-digit" id="pin1b" maxlength="1" inputmode="numeric">
+          <input type="tel" class="pin-digit" id="pin2b" maxlength="1" inputmode="numeric">
+          <input type="tel" class="pin-digit" id="pin3b" maxlength="1" inputmode="numeric">
+          <input type="tel" class="pin-digit" id="pin4b" maxlength="1" inputmode="numeric">
+        </div>
+        <div class="field-error" id="err-pin-confirm">Les codes ne correspondent pas</div>
+      </div>
+      <button class="btn btn-primary" id="btn-pin-next" type="button">Continuer →</button>
+    </div>
+  </div>
+
+  <!-- PAGE : COMPOSITION DU MESSAGE -->
+  <div class="page" id="page-form">
+    <div class="steps"><div class="step-dot"></div><div class="step-dot active"></div><div class="step-dot"></div></div>
+
+    <div class="card">
+      <h2 class="card-title">Composition du message</h2>
+      <p class="card-subtitle">Étape 2 — Activez les modules souhaités</p>
+      <div class="info-row tip"><span>◈</span><span>Seul le prénom du destinataire est obligatoire. Activez les modules de votre choix.</span></div>
+    </div>
+
+    <!-- Destinataire -->
+    <div class="option-block on" style="border-color:var(--gold-d);">
+      <div class="option-header">
+        <div class="option-left"><span class="option-icon">◈</span>
+          <div><div class="option-title">Destinataire <span class="req">*</span></div><div class="option-desc">Prénom de la personne qui reçoit le bijou</div></div>
+        </div>
+      </div>
+      <div class="option-body open">
+        <div class="field" style="margin:0;">
+          <input type="text" id="recipient-name" placeholder="ex. Sophie, Alexandre, Emma…">
+          <div class="field-error" id="err-recipient">Obligatoire</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Occasion -->
+    <div class="option-block" id="block-occasion">
+      <div class="option-header">
+        <div class="option-left"><span class="option-icon">◇</span>
+          <div><div class="option-title">L'occasion</div><div class="option-desc">Anniversaire, diplôme, Noël… avec suggestions</div></div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="tog-occasion"><span class="slider"></span></label>
+      </div>
+      <div class="option-body" id="body-occasion">
+        <div class="pill-group">
+          <div class="pill" data-occasion="Anniversaire">Anniversaire</div>
+          <div class="pill" data-occasion="Amitié">Amitié</div>
+          <div class="pill" data-occasion="Diplôme">Diplôme</div>
+          <div class="pill" data-occasion="Fête des mères">Fête des mères</div>
+          <div class="pill" data-occasion="Encouragement">Encouragement</div>
+          <div class="pill" data-occasion="Souvenir">Souvenir</div>
+          <div class="pill" data-occasion="Noël">Noël</div>
+          <div class="pill" data-occasion="Autre">Autre</div>
+        </div>
+        <div class="field-error" id="err-occasion">Choisissez une occasion ou désactivez ce module</div>
+        <div class="field" id="autre-field" style="display:none;">
+          <label>Précisez</label>
+          <input type="text" id="autre-text" placeholder="ex. Mariage, Naissance, Retraite…">
+        </div>
+        <div class="suggestions-box" id="suggestions-box" style="display:none;">
+          <div class="sug-title">✦ Suggestions — cochez celle(s) qui vous inspirent</div>
+          <div id="suggestions-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Message personnel -->
+    <div class="option-block" id="block-message">
+      <div class="option-header">
+        <div class="option-left"><span class="option-icon">✦</span>
+          <div><div class="option-title">Message personnel</div><div class="option-desc">Vos propres mots, librement</div></div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="tog-message"><span class="slider"></span></label>
+      </div>
+      <div class="option-body" id="body-message">
+        <div class="field" style="margin:0;">
+          <textarea id="message-input" placeholder="Écrivez ici ce que vous souhaitez transmettre…" maxlength="600"></textarea>
+          <div class="char-count"><span id="char-count">0</span> / 600</div>
+          <div class="field-error" id="err-message">Le message est vide</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Étymologie IA -->
+    <div class="option-block" id="block-etym">
+      <div class="option-header">
+        <div class="option-left"><span class="option-icon">◉</span>
+          <div><div class="option-title">Essence du prénom <span class="badge-new">IA</span></div><div class="option-desc">Origine et signification du prénom</div></div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="tog-etym"><span class="slider"></span></label>
+      </div>
+      <div class="option-body" id="body-etym">
+        <p style="font-size:.72rem;color:var(--text-m);line-height:1.7;">Générée par intelligence artificielle à partir du prénom du destinataire.</p>
+      </div>
+    </div>
+
+    <!-- Citation ALNAÉ -->
+    <div class="option-block" id="block-motiv">
+      <div class="option-header">
+        <div class="option-left"><span class="option-icon">◌</span>
+          <div><div class="option-title">Citation ALNAÉ Infinity</div><div class="option-desc">Une pensée inspirante, accordée au genre</div></div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="tog-motiv"><span class="slider"></span></label>
+      </div>
+      <div class="option-body" id="body-motiv">
+        <p style="font-size:.72rem;color:var(--text-m);line-height:1.7;font-style:italic;">Générée par IA selon le contexte. Se conclut par : « N'oublie pas qui tu es. »</p>
+      </div>
+    </div>
+
+    <!-- Médias -->
+    <div class="option-block" id="block-media">
+      <div class="option-header">
+        <div class="option-left"><span class="option-icon">▣</span>
+          <div><div class="option-title">Photo, vidéo ou audio</div><div class="option-desc">Ajoutez un contenu visuel ou vocal</div></div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="tog-media"><span class="slider"></span></label>
+      </div>
+      <div class="option-body" id="body-media">
+        <div class="media-upload-area" id="media-drop-zone">
+          <input type="file" id="media-file-input" accept="image/*,video/*,audio/*" multiple>
+          <span class="media-upload-icon">▣</span>
+          <div class="media-upload-label">
+            <strong>Cliquez ou déposez vos fichiers ici</strong>
+            Photo, vidéo ou message audio
+          </div>
+          <div class="media-types">
+            <span class="media-type-badge">Photo</span>
+            <span class="media-type-badge">Vidéo</span>
+            <span class="media-type-badge">Audio</span>
+          </div>
+        </div>
+        <div class="media-error" id="media-error">Fichier trop volumineux (max 20 Mo) ou format non supporté.</div>
+        <div class="media-limit-info">Maximum 3 fichiers · 20 Mo par fichier · JPG, PNG, MP4, MOV, MP3, WAV</div>
+        <div class="media-previews" id="media-previews"></div>
+      </div>
+    </div>
+
+    <!-- RGPD + bouton -->
+    <div class="card" style="margin-top:.3rem;">
+      <div class="alert-box alert-error" id="form-error">Activez au moins un module en plus du prénom.</div>
+      <div class="rgpd-box">
+        <strong>Consentement au stockage du message</strong><br>
+        Votre message sera associé au bijou et révélé uniquement après vérification du code confidentiel. Il sera traité par ALNAÉ Infinity dans les 24 à 48h ouvrées.
+        <div class="rgpd-row"><input type="checkbox" id="rgpd-msg"><span id="lbl-rgpd-msg">Je consens au stockage sécurisé de mon message.</span></div>
+        <div class="field-error" id="err-rgpd-msg">Consentement requis</div>
+      </div>
+      <button class="btn btn-gold" id="btn-preview" type="button">👁 Prévisualiser mon message</button>
+    </div>
+  </div>
+
+  <!-- PAGE : SUCCÈS -->
+  <div class="page" id="page-success">
+    <div class="steps"><div class="step-dot"></div><div class="step-dot"></div><div class="step-dot active"></div></div>
+    <div class="card" style="text-align:center;">
+      <div class="success-icon">✦</div>
+      <h2 class="card-title" style="text-align:center;">Message scellé !</h2>
+      <div class="alert-box alert-success show" id="success-msg">Votre message a été transmis à ALNAÉ Infinity. Nous le traiterons sous 24 à 48h ouvrées.</div>
+
+      <p style="font-size:.75rem;color:var(--text-m);line-height:1.8;margin:1rem 0;">Votre bijou est maintenant associé à ce message confidentiel. Le destinataire le découvrira en scannant le QR code ci-dessous et en saisissant son code PIN.</p>
+
+      <!-- Carte imprimable -->
+      <div class="carte-wrap">
+        <div class="carte-label">✦ Carte à glisser dans le paquet cadeau</div>
+        <div class="carte-preview">
+          <div class="carte-info">
+            <div class="carte-brand-s">ALNAÉ Infinity</div>
+            <div class="carte-title-s">Confidente</div>
+            <div class="carte-instr">Scannez le QR code ou rendez-vous sur<br><strong style="color:var(--dark);">alnaeinfinity.com/pages/confidente</strong><br>et saisissez le code ci-dessous.</div>
+            <div class="carte-code-lbl">Code du bijou</div>
+            <div class="carte-code-val" id="carte-code-val">—</div>
+          </div>
+          <div id="carte-qr-display"></div>
+        </div>
+        <div class="carte-footer-s">www.alnaeinfinity.com ◆ Collection Confidente</div>
+      </div>
+
+      <!-- Boutons export -->
+      <div class="export-btns">
+        <button class="export-btn export-btn-primary" id="btn-print">🖨️ Imprimer</button>
+        <button class="export-btn" id="btn-dl-svg">⬇ SVG (laser)</button>
+        <button class="export-btn" id="btn-dl-pdf-card">⬇ PDF (jet d'encre)</button>
+      </div>
+      <div style="margin-top:.5rem;font-size:.63rem;color:var(--text-d);text-align:left;">
+        SVG = vectoriel, qualité parfaite pour imprimante laser · PDF = recommandé pour jet d'encre
+      </div>
+
+      <div style="margin-top:1.5rem;padding:1rem;background:rgba(139,105,20,.04);border:1px solid rgba(139,105,20,.15);font-size:.7rem;color:var(--text-m);line-height:1.7;text-align:left;">
+        <strong style="color:var(--dark);">Prochaine étape :</strong><br>
+        Imprimez cette carte, découpez-la et glissez-la dans le paquet cadeau. Le destinataire n'aura qu'à scanner le QR code ou saisir le code du bijou pour découvrir votre message. Son PIN lui sera communiqué séparément par vos soins.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(() => {
+'use strict';
+
+const RENDER_URL = 'https://alnae-confidente-1.onrender.com';
+const REVEAL_PAGE = 'https://www.alnaeinfinity.com/pages/confidente';
+
+// ── ÉTAT ──────────────────────────────────────────────────────────
+const state = {
+  clientCode: '',
+  orderNumber: '',
+  codeIndex: 1,
+  pin: '',
+  currentOccasion: '',
+  preview: null,
+  messageRecord: null,
+  cachedEtym: {}
+};
+const mediaFiles = [];
+const MAX_FILES=3, MAX_SIZE=20*1024*1024;
+const ALLOWED=['image/jpeg','image/png','image/gif','image/webp','video/mp4','video/quicktime','video/webm','audio/mpeg','audio/wav','audio/mp4','audio/x-m4a','audio/ogg'];
+
+// ── GENRES ────────────────────────────────────────────────────────
+const PRENOMS_M=new Set(['aaron','adam','adrien','alexandre','alexis','alban','albert','ali','allan','arnaud','arthur','aurelien','axel','ayoub','baptiste','benjamin','benoit','bernard','boris','brice','bruno','cedric','charles','christophe','clement','corentin','cyril','damien','daniel','david','denis','dorian','dylan','edouard','emmanuel','eric','ethan','etienne','evan','felix','florian','francois','frederic','gabriel','gabin','gautier','gerard','gilles','guillaume','gustave','guy','henri','hugo','isaac','ivan','jack','jean','jeremy','jerome','julien','kevin','kylian','laurent','leon','leonard','liam','lionel','luca','lucas','ludovic','leo','loic','louis','luka','mael','malo','marc','martin','mathieu','mathis','maxime','maxence','mehdi','michael','michel','milan','morgan','nael','nathan','nicolas','noah','noel','nolan','octave','olivier','oscar','paul','philippe','pierre','rafael','raphael','regis','remi','renaud','rene','robin','romain','ruben','samuel','sasha','sebastien','serge','simon','stanislas','stephane','sylvain','tanguy','theo','thibault','thierry','thomas','timothee','tom','tristan','ugo','valentin','victor','vincent','william','xavier','yann','yannick','yves','zacharie','zinedine']);
+function detectGenre(p){if(!p)return'F';const s=p.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').split(/[\s-]/)[0];if(PRENOMS_M.has(s))return'M';const l3=s.slice(-3),l2=s.slice(-2),l1=s.slice(-1);if(['ine','ene','ale','lle','tte','ise','ose','ane'].includes(l3))return'F';if(['ia','ea','na','la','ra','sa'].includes(l2))return'F';if(l1==='a'&&s.length>3)return'F';if(['el','en','on','an','in','us'].includes(l2))return'M';if(l1==='o'&&s.length>3)return'M';return'F';}
+
+const CITATIONS={F:["Tu es plus forte que tu ne le crois, plus belle que tu ne le vois, et plus aimée que tu ne le sais.\n\nN'oublie pas qui tu es.","Porter ce bijou, c'est porter un morceau de l'âme de quelqu'un qui croit en toi.\n\nN'oublie pas qui tu es.","Elle croyait qu'elle pouvait, alors elle l'a fait.\n\nN'oublie pas qui tu es."],M:["Tu es plus fort que tu ne le crois, plus grand que tu ne le vois, et plus aimé que tu ne le sais.\n\nN'oublie pas qui tu es.","Porter ce bijou, c'est porter un morceau de l'âme de quelqu'un qui croit en toi.\n\nN'oublie pas qui tu es.","Il croyait qu'il pouvait, alors il l'a fait.\n\nN'oublie pas qui tu es."]};
+
+const SUGGESTIONS={'Anniversaire':["En ce jour si particulier, je voulais que tu saches à quel point tu comptes. Chaque année te rend encore plus toi. Joyeux anniversaire.","Tu mérites ce bijou, comme tu mérites tout ce que la vie a de plus beau. Avec tout mon amour.","Le temps passe, mais la place que tu as dans mon cœur ne change pas."],'Amitié':["Certaines personnes entrent dans ta vie et tu réalises que tu ne peux plus imaginer sans elles. Tu es de celles-là.","On dit que les vrais amis sont rares. Je suis si heureux/heureuse de t'avoir trouvé(e).","Ce bijou est un morceau de notre amitié. Porte-le quand tu as besoin de te sentir moins seul(e)."],'Diplôme':["Tu as travaillé, tu as persévéré, tu y es arrivé(e). Ce diplôme représente tout ce que tu peux accomplir.","Félicitations. Que cette réussite soit le début de tout ce que tu as rêvé de construire.","Je t'ai regardé(e) avancer, douter parfois, mais jamais abandonner. Je suis fier/fière de toi."],'Fête des mères':["Aucun bijou ne pourra exprimer tout ce que tu représentes. Mais j'espère qu'il te rappellera à quel point tu es aimée.","Tu m'as appris à me lever quand je tombe, à aimer sans condition. Merci.","Pour celle qui a tout donné sans jamais rien demander. Ce bijou est fait pour toi."],'Encouragement':["Je sais que ce n'est pas facile. Mais je connais ta force. Tu vas y arriver.","Tu es capable, tu es fort(e), tu es exactement où tu dois être.","Porte ce bijou comme un rappel que tu n'es jamais seul(e). Quelqu'un croit en toi."],'Souvenir':["Ce moment entre nous, je ne veux pas l'oublier. Voici quelque chose qui t'y ramène.","Les mots ne suffisent pas. Ce bijou porte notre souvenir.","Là où les photos s'effacent et les mots se perdent, ce bijou restera."],'Noël':["En cette période de lumières, j'avais envie de t'offrir quelque chose qui te ressemble. Joyeux Noël.","Noël, c'est le moment que je préfère pour dire les choses qu'on n'ose pas dire. Tu comptes énormément.","Ce bijou est mon cadeau, mais surtout un morceau de moi que je t'offre."]};
+
+// ── UTILITAIRES ───────────────────────────────────────────────────
+const g=id=>document.getElementById(id);
+const norm=s=>(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+const toggleOn=id=>!!g(id)?.checked;
+function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));g(id)?.classList.add('active');window.scrollTo({top:0,behavior:'smooth'});}
+function setText(id,v){const e=g(id);if(e)e.textContent=v??'';}
+function setErr(id,show,text=''){const e=g(id);if(!e)return;if(text)e.textContent=text;e.classList.toggle('show',!!show);}
+function setInpErr(id,show){const e=g(id);if(e)e.classList.toggle('err',!!show);}
+function getPinValue(ids){return ids.map(id=>g(id)?.value||'').join('');}
+function initPinNav(ids){ids.forEach((id,i)=>{const el=g(id);if(!el)return;el.addEventListener('input',function(){this.value=this.value.replace(/[^0-9]/g,'');if(this.value&&i<ids.length-1)g(ids[i+1])?.focus();});el.addEventListener('keydown',function(e){if(e.key==='Backspace'&&!this.value&&i>0)g(ids[i-1])?.focus();});});}
+
+// ── QR CODE ───────────────────────────────────────────────────────
+function generateQR(containerId,url,size){const el=g(containerId);if(!el||typeof QRCode==='undefined')return;el.innerHTML='';new QRCode(el,{text:url,width:size||100,height:size||100,colorDark:'#1C1408',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});}
+
+// ── CONFETTI ──────────────────────────────────────────────────────
+function launchConfetti(){const c=g('confetti');if(!c)return;c.innerHTML='';for(let i=0;i<30;i++){const p=document.createElement('div');p.className='cp';p.style.cssText='left:'+Math.random()*100+'vw;animation-duration:'+(Math.random()*2+1.5)+'s;animation-delay:'+(Math.random()*.8)+'s;width:'+(Math.random()*6+4)+'px;height:'+(Math.random()*6+4)+'px;background:'+(Math.random()>.5?'#8B6914':'#C8BAA0')+';border-radius:'+(Math.random()>.5?'50%':'0')+';';c.appendChild(p);}setTimeout(()=>{c.innerHTML='';},4000);}
+
+// ── IA ÉTYMOLOGIE ─────────────────────────────────────────────────
+async function fetchEtymIA(prenom){
+  const key=norm(prenom);
+  if(state.cachedEtym[key])return state.cachedEtym[key];
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:350,system:'Expert etymologie prenoms. 3 paragraphes poetiques separes par ligne vide. 1:racine linguistique. 2:personnalite accordee au genre. 3:phrase finale forte. Tutoiement. Pas de markdown.',messages:[{role:'user',content:'Etymologie poetique du prenom '+prenom+' (genre: '+(detectGenre(prenom)==='M'?'masculin':'feminin')+')'}]})});
+    const d=await r.json();const t=d.content?.[0]?.text;
+    if(t){const c=t.replace(/\*([^*]+)\*/g,'$1').trim();state.cachedEtym[key]=c;return c;}
+  }catch(_){}
+  const gk=detectGenre(prenom);
+  return gk==='M'?'Le prénom '+prenom+' porte en lui la force de tous ceux qui l\'ont porté avant toi.\n\nIl incarne une énergie noble et singulière, celle d\'un homme qui trace sa voie.\n\nPorte-le avec fierté. Il te ressemble.'
+    :'Le prénom '+prenom+' porte en lui la grâce de toutes celles qui l\'ont porté avant toi.\n\nIl incarne une énergie singulière, celle d\'une femme qui avance avec élégance.\n\nPorte-le avec fierté. Il te ressemble.';
+}
+
+// ── IA CITATION ───────────────────────────────────────────────────
+async function fetchMotivIA(prenom,occasion,msg){
+  const genre=detectGenre(prenom);
+  const ctx=(occasion?'Occasion: '+occasion+'. ':'')+( msg?'Ton du message: '+msg.slice(0,80):'');
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:120,system:'Tu es ALNAÉ Infinity, marque de bijoux premium. UNE citation courte (max 2 phrases) pour bijou offert. Accordée au genre ('+(genre==='M'?'masculin':'féminin')+'). En lien avec le contexte. Termine par "N\'oublie pas qui tu es." Pas de guillemets.',messages:[{role:'user',content:'Bijou pour '+prenom+'. '+(ctx||'Occasion spéciale.')}]})});
+    const d=await r.json();const t=d.content?.[0]?.text;
+    if(t)return t.replace(/\*([^*]+)\*/g,'$1').trim();
+  }catch(_){}
+  const list=CITATIONS[genre]||CITATIONS.F;return list[Math.floor(Math.random()*list.length)];
+}
+
+// ── IA SUGGESTIONS ────────────────────────────────────────────────
+async function fetchSuggestionsIA(occasion,prenom){
+  const genre=detectGenre(prenom||'');
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,system:'Expert messages pour bijoux haut de gamme. UNIQUEMENT JSON valide. Format: {"suggestions":["msg1","msg2","msg3"]}. 3 messages: 2-3 phrases, poétiques, genre '+(genre==='M'?'masculin':'féminin')+'. Tutoiement.',messages:[{role:'user',content:'Occasion: '+occasion+'. Prénom: '+(prenom||'le destinataire')+'. 3 messages inspirants.'}]})});
+    const d=await r.json();const t=d.content?.[0]?.text||'{}';
+    const parsed=JSON.parse(t.replace(/[\u0060]{3}json|[\u0060]{3}/g,'').trim());
+    if(parsed.suggestions?.length)return parsed.suggestions;
+  }catch(_){}
+  return SUGGESTIONS[occasion]||null;
+}
+
+// ── SUGGESTIONS AFFICHAGE ─────────────────────────────────────────
+function renderSuggestions(occasion){
+  const box=g('suggestions-box'),list=g('suggestions-list');
+  if(!box||!list)return;
+  const fallback=SUGGESTIONS[occasion];
+  if(fallback){renderFromList(fallback);}else{box.style.display='none';}
+  if(occasion&&occasion!=='Autre'){
+    const prenom=g('recipient-name')?.value?.trim()||'';
+    fetchSuggestionsIA(occasion,prenom).then(ai=>{if(ai)renderFromList(ai);});
+  }
+}
+function renderFromList(items){
+  const box=g('suggestions-box'),list=g('suggestions-list');
+  if(!box||!list||!items?.length){if(box)box.style.display='none';return;}
+  list.innerHTML='';
+  items.forEach(txt=>{
+    const row=document.createElement('div');row.className='sug-item';
+    const cb=document.createElement('input');cb.type='checkbox';cb.dataset.text=txt;
+    const sp=document.createElement('span');sp.textContent=txt;
+    row.appendChild(cb);row.appendChild(sp);
+    cb.addEventListener('change',applySuggestions);
+    sp.addEventListener('click',()=>{cb.checked=!cb.checked;applySuggestions();});
+    list.appendChild(row);
+  });
+  box.style.display='block';
+}
+function applySuggestions(){
+  const sel=Array.from(document.querySelectorAll('#suggestions-list input:checked')).map(cb=>cb.dataset.text);
+  if(!sel.length)return;
+  const ta=g('message-input');ta.value=sel.join('\n\n');setText('char-count',String(ta.value.length));
+  if(!toggleOn('tog-message')){g('tog-message').checked=true;g('body-message').classList.add('open');g('block-message').classList.add('on');}
+}
+
+// ── MÉDIAS ────────────────────────────────────────────────────────
+function fmtSize(b){return b<1024*1024?(b/1024).toFixed(1)+' Ko':(b/1024/1024).toFixed(1)+' Mo';}
+function renderMediaPreviews(){
+  const cont=g('media-previews');if(!cont)return;cont.innerHTML='';
+  mediaFiles.forEach((file,idx)=>{
+    const url=URL.createObjectURL(file);
+    const item=document.createElement('div');item.className='media-item';
+    let inner=file.type.startsWith('image')?'<img src="'+(file._dataUrl||url)+'" class="media-item-preview" alt="">'
+      :'<span style="font-size:1.2rem;">'+(file.type.startsWith('video')?'🎥':'🎙️')+'</span>';
+    item.innerHTML=inner+'<div class="media-item-info"><div class="media-item-name">'+file.name+'</div><div class="media-item-size">'+fmtSize(file.size)+'</div>'+(file.type.startsWith('audio')?'<audio controls style="width:100%;margin-top:.3rem;" src="'+url+'"></audio>':'')+'</div><button class="media-item-remove" data-idx="'+idx+'">✕</button>';
+    item.querySelector('.media-item-remove').addEventListener('click',function(){mediaFiles.splice(parseInt(this.dataset.idx),1);renderMediaPreviews();updateDropZone();});
+    cont.appendChild(item);
+  });
+}
+function updateDropZone(){const z=g('media-drop-zone'),i=g('media-file-input');if(!z||!i)return;const d=mediaFiles.length>=MAX_FILES;z.style.opacity=d?'.5':'1';z.style.pointerEvents=d?'none':'auto';i.disabled=d;}
+function handleMedia(files){
+  const errEl=g('media-error');if(errEl)errEl.classList.remove('show');let hasErr=false;
+  Array.from(files).forEach(f=>{
+    if(mediaFiles.length>=MAX_FILES)return;
+    if(f.size>MAX_SIZE||!ALLOWED.includes(f.type)){hasErr=true;return;}
+    if(!mediaFiles.find(m=>m.name===f.name&&m.size===f.size)){
+      if(f.type.startsWith('image')){const r=new FileReader();r.onload=e=>{f._dataUrl=e.target.result;renderMediaPreviews();};r.readAsDataURL(f);}
+      mediaFiles.push(f);
+    }
+  });
+  if(hasErr&&errEl)errEl.classList.add('show');
+  renderMediaPreviews();updateDropZone();
+}
+
+// ── APERÇU MÉDIAS ─────────────────────────────────────────────────
+function renderPrevMedia(){
+  const wrap=g('prev-media-wrap');if(!wrap)return;
+  if(!mediaFiles.length){wrap.style.display='none';return;}
+  wrap.style.display='block';wrap.innerHTML='';
+  mediaFiles.forEach(f=>{
+    const url=URL.createObjectURL(f);
+    if(f.type.startsWith('image')){const img=document.createElement('img');img.src=f._dataUrl||url;img.style.cssText='max-width:100%;max-height:220px;object-fit:contain;border:1px solid var(--lin-border);display:block;margin:.4rem auto;';wrap.appendChild(img);}
+    else if(f.type.startsWith('audio')){const d=document.createElement('div');d.style.cssText='padding:.5rem;background:var(--lin-soft);margin:.3rem 0;font-size:.7rem;';d.innerHTML='🎙️ '+f.name+'<br><audio controls style="width:100%;margin-top:.3rem;" src="'+url+'"></audio>';wrap.appendChild(d);}
+    else if(f.type.startsWith('video')){const v=document.createElement('video');v.src=url;v.controls=true;v.style.cssText='max-width:100%;max-height:200px;display:block;margin:.4rem auto;border:1px solid var(--lin-border);';wrap.appendChild(v);}
+  });
+}
+
+// ── ÉTAPE 1 : VALIDER LE CODE CLIENT ─────────────────────────────
+g('btn-validate-code')?.addEventListener('click', validateClientCode);
+g('client-code-input')?.addEventListener('keydown', e => { if(e.key==='Enter')validateClientCode(); });
+
+async function validateClientCode(){
+  const code = (g('client-code-input').value||'').trim().toUpperCase();
+  if(!code){setErr('err-code-box',true,'Veuillez saisir votre code unique.');setInpErr('client-code-input',true);return;}
+  setErr('err-code-box',false);setInpErr('client-code-input',false);
+  const btn=g('btn-validate-code');btn.disabled=true;btn.textContent='VÉRIFICATION…';
+  try{
+    const resp=await fetch(RENDER_URL+'/validate-client-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientCode:code})});
+    const data=await resp.json();
+    if(!resp.ok)throw new Error(data.message||'Code invalide.');
+    state.clientCode=code;
+    state.orderNumber=data.orderNumber||'';
+    state.codeIndex=data.codeIndex||1;
+    g('order-number-display').value=state.orderNumber;
+    showPage('page-pin');
+    g('pin1')?.focus();
+  }catch(err){
+    setErr('err-code-box',true,err.message||'Code invalide. Vérifiez l\'email reçu d\'ALNAÉ Infinity.');
+    setInpErr('client-code-input',true);
+  }finally{btn.disabled=false;btn.textContent='ACCÉDER À MON FORMULAIRE →';}
+}
+
+// ── ÉTAPE 2 : PIN ─────────────────────────────────────────────────
+g('btn-pin-next')?.addEventListener('click', validatePin);
+function validatePin(){
+  const pin=getPinValue(['pin1','pin2','pin3','pin4']);
+  const pinb=getPinValue(['pin1b','pin2b','pin3b','pin4b']);
+  if(pin.length!==4){setErr('err-pin',true);return;}
+  setErr('err-pin',false);
+  if(pin!==pinb){setErr('err-pin-confirm',true);return;}
+  setErr('err-pin-confirm',false);
+  state.pin=pin;
+  showPage('page-form');
+}
+
+// ── APERÇU ────────────────────────────────────────────────────────
+g('btn-preview')?.addEventListener('click', buildPreview);
+async function buildPreview(){
+  const recipient=g('recipient-name').value.trim();
+  const rgpd=g('rgpd-msg').checked;
+  const hasOcc=toggleOn('tog-occasion'),hasMsg=toggleOn('tog-message');
+  const hasEtym=toggleOn('tog-etym'),hasMotiv=toggleOn('tog-motiv');
+  const message=g('message-input').value.trim();
+  let ok=true;
+  setErr('err-recipient',!recipient);setInpErr('recipient-name',!recipient);if(!recipient)ok=false;
+  setErr('err-rgpd-msg',!rgpd);if(!rgpd)ok=false;
+  if(!hasOcc&&!hasMsg&&!hasEtym&&!hasMotiv){setErr('form-error',true);ok=false;}else{setErr('form-error',false);}
+  if(hasOcc&&!state.currentOccasion){setErr('err-occasion',true);ok=false;}else{setErr('err-occasion',false);}
+  if(hasMsg&&!message){setErr('err-message',true);setInpErr('message-input',true);ok=false;}else{setErr('err-message',false);setInpErr('message-input',false);}
+  if(!ok)return;
+
+  const occasion=hasOcc?(state.currentOccasion==='Autre'?(g('autre-text').value.trim()||'Autre'):state.currentOccasion):'';
+  const btn=g('btn-preview');btn.disabled=true;btn.textContent='PRÉPARATION…';
+  g('prev-loading').classList.add('show');
+  ['prev-etym','prev-msg-block','prev-motiv-block'].forEach(id=>g(id).style.display='none');
+  g('preview-overlay').classList.add('show');
+  setText('prev-name',recipient);
+  if(occasion){setText('prev-occasion',occasion);g('prev-occ-wrap').style.display='block';}
+  else g('prev-occ-wrap').style.display='none';
+  setText('prev-from','— De la part de');
+  renderPrevMedia();
+  try{
+    let etymologyText=null,motivationText=null;
+    if(hasEtym)etymologyText=await fetchEtymIA(recipient);
+    if(hasMotiv)motivationText=await fetchMotivIA(recipient,occasion,hasMsg?message:null);
+    state.preview={recipient,occasion,etymologyText,personalMessage:hasMsg?message:null,motivationText,senderLine:'— ALNAÉ Confidente'};
+    if(etymologyText){setText('prev-etym-text',etymologyText);g('prev-etym').style.display='block';}
+    if(hasMsg&&message){setText('prev-message',message);g('prev-msg-block').style.display='block';}
+    if(motivationText){setText('prev-motiv-text',motivationText);g('prev-motiv-block').style.display='block';}
+  }catch(err){g('preview-overlay').classList.remove('show');setErr('form-error',true,err.message||'Erreur lors de la préparation.');}
+  finally{g('prev-loading').classList.remove('show');btn.disabled=false;btn.textContent='👁 PRÉVISUALISER MON MESSAGE';}
+}
+
+function closePreview(){g('preview-overlay').classList.remove('show');}
+g('btn-close-preview')?.addEventListener('click',closePreview);
+g('btn-back-edit')?.addEventListener('click',closePreview);
+g('preview-overlay')?.addEventListener('click',e=>{if(e.target===g('preview-overlay'))closePreview();});
+
+// ── SCELLEMENT ────────────────────────────────────────────────────
+g('btn-confirm-seal')?.addEventListener('click', sealMessage);
+async function sealMessage(){
+  if(!state.preview)return;
+  const btn=g('btn-confirm-seal');btn.disabled=true;btn.textContent='SCELLEMENT…';
+  try{
+    // Générer le code bijou
+    const cleanOrder=state.orderNumber.replace(/[^a-zA-Z0-9]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');
+    const jewelCode='CONF-'+cleanOrder+'-'+String(state.codeIndex).padStart(2,'0');
+
+    const body={
+      clientCode:state.clientCode,
+      pin:state.pin,
+      jewelCode,
+      recipientName:state.preview.recipient,
+      occasion:state.preview.occasion||null,
+      personalMessage:state.preview.personalMessage||null,
+      etymologyText:state.preview.etymologyText||null,
+      motivationText:state.preview.motivationText||null,
+      senderLine:state.preview.senderLine
+    };
+
+    const resp=await fetch(RENDER_URL+'/seal-message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const data=await resp.json();
+    if(!resp.ok)throw new Error(data.message||'Erreur lors du scellement.');
+
+    const revealUrl=REVEAL_PAGE+'?code='+encodeURIComponent(jewelCode);
+    state.messageRecord={jewelCode,revealUrl,...state.preview};
+
+    // Afficher la carte
+    setText('carte-code-val',jewelCode);
+    generateQR('carte-qr-display',revealUrl,90);
+    closePreview();launchConfetti();showPage('page-success');
+
+  }catch(err){
+    const el=g('form-error');if(el){el.textContent=err.message||'Erreur lors du scellement.';el.classList.add('show');}
+    closePreview();
+  }finally{btn.disabled=false;btn.textContent='✦ CONFIRMER ET SCELLER';}
+}
+
+// ── IMPRESSION + EXPORTS ──────────────────────────────────────────
+g('btn-print')?.addEventListener('click', printCarte);
+g('btn-dl-svg')?.addEventListener('click', downloadSVG);
+g('btn-dl-pdf-card')?.addEventListener('click', downloadPDF);
+
+function printCarte(){
+  const rec=state.messageRecord;if(!rec)return;
+  const qrCanvas=g('carte-qr-display')?.querySelector('canvas');
+  const qrDataUrl=qrCanvas?qrCanvas.toDataURL('image/png'):'';
+  const w=window.open('','_blank','width=500,height=600');
+  w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Carte ALNAÉ</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400&family=Raleway:wght@300;400&display=swap" rel="stylesheet">
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;font-family:'Raleway',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+.carte{width:320px;background:white;border:1.5px solid #1C1408;overflow:hidden;}
+.ct{background:white;border-bottom:2px solid #1C1408;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;}
+.cb{font-size:8px;letter-spacing:3px;text-transform:uppercase;color:#8B6914;}.cn{font-family:'Playfair Display',serif;font-size:18px;font-style:italic;color:#1C1408;}.cd{color:#8B6914;font-size:12px;}
+.cc{padding:14px 16px;display:flex;gap:12px;align-items:center;}.cl{flex:1;}
+.ci{font-size:9px;color:#5A4A2A;line-height:1.65;margin-bottom:10px;}.ci strong{color:#1C1408;}
+.ck{font-size:7px;letter-spacing:2px;text-transform:uppercase;color:#8A7A60;margin-bottom:4px;}
+.cv{background:white;color:#1C1408;border:1.5px solid #1C1408;padding:4px 8px;font-family:monospace;font-size:11px;letter-spacing:2px;display:inline-block;font-weight:bold;}
+.cq img{width:80px;height:80px;display:block;border:1px solid #E8E2D4;}.cq-ph{width:80px;height:80px;background:#F2EDE3;border:1px solid #C8BAA0;display:flex;align-items:center;justify-content:center;font-size:8px;color:#8A7A60;text-align:center;}
+.cf{border-top:1px solid #E8E2D4;padding:6px 16px;display:flex;align-items:center;justify-content:space-between;}
+.cu{font-size:7px;color:#8A7A60;}.actions{margin-top:20px;display:flex;gap:10px;}
+.bp{padding:10px 24px;background:#1C1408;color:white;border:none;font-family:'Raleway',sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;}
+.bc{padding:10px 20px;background:white;border:1px solid #C8BAA0;color:#5A4A2A;font-family:'Raleway',sans-serif;font-size:11px;cursor:pointer;}
+@media print{body{padding:0;}.actions{display:none;}}</style></head>
+<body><div class="carte"><div class="ct"><div><div class="cb">ALNAÉ Infinity</div><div class="cn">Confidente</div></div><div class="cd">◆</div></div>
+<div class="cc"><div class="cl"><div class="ci">Scannez le QR code ou rendez-vous sur<br><strong>alnaeinfinity.com/pages/confidente</strong><br>et saisissez le code ci-dessous pour découvrir votre message confidentiel.</div>
+<div class="ck">Code du bijou</div><div class="cv">${rec.jewelCode}</div></div>
+<div class="cq">${qrDataUrl?'<img src="'+qrDataUrl+'" alt="QR">':'<div class="cq-ph">QR Code</div>'}</div></div>
+<div class="cf"><span class="cu">www.alnaeinfinity.com</span><span class="cd">◆</span></div></div>
+<div class="actions"><button class="bp" onclick="window.print()">Imprimer</button><button class="bc" onclick="window.close()">Fermer</button></div>
+</body></html>`);w.document.close();
+}
+
+function downloadSVG(){
+  const rec=state.messageRecord;if(!rec)return;
+  const qrCanvas=g('carte-qr-display')?.querySelector('canvas');
+  const qrDataUrl=qrCanvas?qrCanvas.toDataURL('image/png'):'';
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="320" height="180" viewBox="0 0 320 180">
+<defs><style>.b{font:8px Arial,sans-serif;letter-spacing:2;fill:#8B6914;}.t{font:italic 17px Georgia,serif;fill:#1C1408;}.s{font:9px Arial,sans-serif;fill:#5A4A2A;}.sb{font:bold 9px Arial,sans-serif;fill:#1C1408;}.k{font:7px Arial,sans-serif;letter-spacing:1;fill:#8A7A60;}.v{font:bold 11px 'Courier New',monospace;letter-spacing:2;fill:#1C1408;}.u{font:7px Arial,sans-serif;fill:#8A7A60;}</style></defs>
+<rect x="1" y="1" width="318" height="178" fill="white" stroke="#1C1408" stroke-width="1.5"/>
+<line x1="1" y1="36" x2="319" y2="36" stroke="#1C1408" stroke-width="2"/>
+<text x="16" y="17" class="b">ALNAÉ INFINITY</text>
+<text x="16" y="30" class="t">Confidente</text>
+<text x="295" y="25" style="font:14px Georgia,serif;fill:#8B6914;">◆</text>
+<text x="16" y="52" class="s">Scannez le QR code ou rendez-vous sur</text>
+<text x="16" y="64" class="sb">alnaeinfinity.com/pages/confidente</text>
+<text x="16" y="76" class="s">et saisissez le code ci-dessous pour</text>
+<text x="16" y="88" class="s">découvrir votre message confidentiel.</text>
+<text x="16" y="106" class="k">CODE DU BIJOU</text>
+<rect x="16" y="111" width="${rec.jewelCode.length*8+16}" height="20" fill="white" stroke="#1C1408" stroke-width="1.5"/>
+<text x="24" y="125" class="v">${rec.jewelCode}</text>
+${qrDataUrl?'<image x="224" y="42" width="80" height="80" xlink:href="'+qrDataUrl+'"/>':'<rect x="224" y="42" width="80" height="80" fill="#F2EDE3" stroke="#C8BAA0" stroke-width="1"/>'}
+<line x1="1" y1="158" x2="319" y2="158" stroke="#E8E2D4" stroke-width="1"/>
+<text x="16" y="172" class="u">www.alnaeinfinity.com</text>
+<text x="294" y="172" class="u">◆</text>
+</svg>`;
+  const blob=new Blob([svg],{type:'image/svg+xml'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='carte-alnae-'+rec.jewelCode+'.svg';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+function downloadPDF(){
+  const rec=state.messageRecord;if(!rec)return;
+  if(typeof window.jspdf==='undefined'){alert('PDF non disponible.');return;}
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:'mm',format:[85.6,54]});
+  const qrCanvas=g('carte-qr-display')?.querySelector('canvas');
+  doc.setFillColor(255,255,255);doc.rect(0,0,85.6,54,'F');
+  doc.setDrawColor(28,20,8);doc.setLineWidth(0.5);doc.rect(0.5,0.5,84.6,53,'S');
+  doc.setLineWidth(0.7);doc.line(0.5,12,85.1,12);
+  doc.setFontSize(5);doc.setTextColor(139,105,20);doc.setFont('helvetica','normal');doc.text('ALNAÉ INFINITY',4,6,{charSpace:1.5});
+  doc.setFontSize(9);doc.setTextColor(28,20,8);doc.setFont('times','italic');doc.text('Confidente',4,11);
+  doc.setFontSize(8);doc.setTextColor(139,105,20);doc.text('◆',79,8);
+  doc.setFontSize(4.5);doc.setTextColor(90,74,42);doc.setFont('helvetica','normal');
+  doc.text('Scannez le QR code ou rendez-vous sur',4,18);
+  doc.setTextColor(28,20,8);doc.setFont('helvetica','bold');doc.text('alnaeinfinity.com/pages/confidente',4,22.5);
+  doc.setTextColor(90,74,42);doc.setFont('helvetica','normal');doc.text('et saisissez le code ci-dessous',4,27);doc.text('pour découvrir votre message confidentiel.',4,31);
+  doc.setFontSize(4);doc.setTextColor(138,122,96);doc.text('CODE DU BIJOU',4,37,{charSpace:1});
+  doc.setDrawColor(28,20,8);doc.setLineWidth(0.5);doc.rect(4,39,rec.jewelCode.length*2.8+4,7,'S');
+  doc.setFontSize(6);doc.setTextColor(28,20,8);doc.setFont('courier','bold');doc.text(rec.jewelCode,6,44.5,{charSpace:1});
+  if(qrCanvas){try{doc.addImage(qrCanvas.toDataURL('image/png'),'PNG',58,14,24,24);}catch(_){}}
+  doc.setDrawColor(232,226,212);doc.setLineWidth(0.3);doc.line(0.5,47,85.1,47);
+  doc.setFontSize(4);doc.setTextColor(138,122,96);doc.setFont('helvetica','normal');doc.text('www.alnaeinfinity.com',4,51);
+  doc.setTextColor(139,105,20);doc.text('◆',80,51);
+  doc.save('carte-alnae-'+rec.jewelCode+'.pdf');
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function(){
+  initPinNav(['pin1','pin2','pin3','pin4']);
+  initPinNav(['pin1b','pin2b','pin3b','pin4b']);
+
+  // Occasions
+  document.querySelectorAll('.pill[data-occasion]').forEach(pill=>{
+    pill.addEventListener('click',function(){
+      document.querySelectorAll('.pill[data-occasion]').forEach(p=>p.classList.remove('active'));
+      this.classList.add('active');
+      state.currentOccasion=this.dataset.occasion||'';
+      setErr('err-occasion',false);
+      g('autre-field').style.display=state.currentOccasion==='Autre'?'block':'none';
+      renderSuggestions(state.currentOccasion);
+    });
+  });
+
+  // Option toggles
+  [['tog-occasion','body-occasion','block-occasion'],
+   ['tog-message','body-message','block-message'],
+   ['tog-etym','body-etym','block-etym'],
+   ['tog-motiv','body-motiv','block-motiv']].forEach(([tid,bid,blid])=>{
+    g(tid)?.addEventListener('change',function(){
+      g(bid)?.classList.toggle('open',this.checked);
+      g(blid)?.classList.toggle('on',this.checked);
+    });
+  });
+
+  // Toggle média
+  g('tog-media')?.addEventListener('change',function(){
+    g('body-media')?.classList.toggle('open',this.checked);
+    g('block-media')?.classList.toggle('on',this.checked);
+    if(!this.checked){mediaFiles.length=0;renderMediaPreviews();updateDropZone();}
+  });
+
+  // Compteur caractères
+  g('message-input')?.addEventListener('input',function(){setText('char-count',String(this.value.length));});
+
+  // Médias
+  const mInput=g('media-file-input'),mZone=g('media-drop-zone');
+  if(mInput){mInput.addEventListener('change',function(){handleMedia(this.files);this.value='';});}
+  if(mZone){
+    mZone.addEventListener('dragover',e=>{e.preventDefault();mZone.classList.add('drag-over');});
+    mZone.addEventListener('dragleave',()=>mZone.classList.remove('drag-over'));
+    mZone.addEventListener('drop',e=>{e.preventDefault();mZone.classList.remove('drag-over');handleMedia(e.dataTransfer.files);});
+  }
+
+  // RGPD toggle label
+  g('lbl-rgpd-msg')?.addEventListener('click',()=>{const cb=g('rgpd-msg');if(cb)cb.checked=!cb.checked;});
+
+  // Pré-remplir code depuis URL (?code=CL-XXXX)
+  const params=new URLSearchParams(window.location.search);
+  const codeParam=params.get('code');
+  if(codeParam)g('client-code-input').value=codeParam.toUpperCase();
+});
+
+})();
+</script>
+</body>
+</html>
