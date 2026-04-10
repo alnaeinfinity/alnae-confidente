@@ -129,10 +129,7 @@ header{text-align:center;padding:3rem 2rem 1.5rem;position:relative;z-index:1;}
 .btn-gold:hover:not(:disabled){background:var(--gold-b);}
 
 /* PIN */
-.pin-wrap{display:flex;gap:.5rem;justify-content:center;margin:.9rem 0;}
-.pin-digit{width:50px;height:58px;border:1px solid var(--lin-border);background:rgba(255,252,248,.9);font-family:'Playfair Display',serif;font-size:1.6rem;text-align:center;color:var(--dark);outline:none;transition:border-color .2s;-webkit-appearance:none;}
-.pin-digit:focus{border-color:var(--gold-d);box-shadow:0 0 0 3px rgba(139,105,20,.08);}
-.pin-hint{font-size:.63rem;color:var(--text-d);text-align:center;line-height:1.5;letter-spacing:.05em;}
+
 
 /* MÉDIAS */
 .media-upload-area{border:1px dashed var(--lin-border);padding:1.5rem 1rem;text-align:center;cursor:pointer;transition:all .2s;position:relative;}
@@ -224,7 +221,6 @@ header{text-align:center;padding:3rem 2rem 1.5rem;position:relative;z-index:1;}
 @media(max-width:480px){
   .collection-title{font-size:2.6rem;}
   .card{padding:1.6rem 1.2rem;}
-  .pin-digit{width:42px;height:50px;font-size:1.4rem;}
   .export-btns{flex-direction:column;}
 }
 </style>
@@ -280,59 +276,25 @@ header{text-align:center;padding:3rem 2rem 1.5rem;position:relative;z-index:1;}
         <div class="alert-box alert-error" id="err-code-box"></div>
         <div class="field" style="text-align:left;">
           <label>Votre code unique <span class="req">*</span></label>
-          <input class="code-input-large" type="text" id="client-code-input" placeholder="ex. CL-PWFNBRBH" autocomplete="off">
-          <div class="field-hint" style="text-align:left;">Ce code vous a été communiqué par email. Il est à usage unique.</div>
+          <input class="code-input-large" type="text" id="client-code-input" placeholder="ex. CL-PWFNBRBH" autocomplete="off" oninput="this.value=this.value.replace(/\s/g,'').toUpperCase()">
+          <div class="field-hint" style="text-align:left;">Ce code vous a été communiqué par email. Majuscules, minuscules et espaces sont acceptés.</div>
         </div>
         <button class="btn btn-primary" id="btn-validate-code" type="button" style="max-width:300px;margin:0 auto;">Accéder à mon formulaire →</button>
       </div>
     </div>
   </div>
 
-  <!-- PAGE : FORMULAIRE PIN -->
-  <div class="page" id="page-pin">
-    <div class="steps"><div class="step-dot active"></div><div class="step-dot"></div><div class="step-dot"></div></div>
-    <div class="card">
-      <h2 class="card-title">Code confidentiel</h2>
-      <p class="card-subtitle">Étape 1 — Sécurisez votre message</p>
-      <div class="info-row tip"><span>◈</span><span>Choisissez un code à 4 chiffres. Le destinataire devra le saisir pour révéler votre message.</span></div>
-      <div class="field">
-        <label>N° de commande</label>
-        <input type="text" id="order-number-display" readonly>
-        <div class="field-hint">Numéro pré-rempli depuis votre commande. Non modifiable.</div>
-      </div>
-      <div class="field">
-        <label>Créez votre code <span class="req">*</span></label>
-        <div class="pin-wrap">
-          <input type="tel" class="pin-digit" id="pin1" maxlength="1" inputmode="numeric">
-          <input type="tel" class="pin-digit" id="pin2" maxlength="1" inputmode="numeric">
-          <input type="tel" class="pin-digit" id="pin3" maxlength="1" inputmode="numeric">
-          <input type="tel" class="pin-digit" id="pin4" maxlength="1" inputmode="numeric">
-        </div>
-        <div class="pin-hint">4 chiffres — mémorable pour vous, confidentiel pour les autres</div>
-        <div class="field-error" id="err-pin">4 chiffres requis</div>
-      </div>
-      <div class="field" style="margin-top:1rem;">
-        <label>Confirmez votre code <span class="req">*</span></label>
-        <div class="pin-wrap">
-          <input type="tel" class="pin-digit" id="pin1b" maxlength="1" inputmode="numeric">
-          <input type="tel" class="pin-digit" id="pin2b" maxlength="1" inputmode="numeric">
-          <input type="tel" class="pin-digit" id="pin3b" maxlength="1" inputmode="numeric">
-          <input type="tel" class="pin-digit" id="pin4b" maxlength="1" inputmode="numeric">
-        </div>
-        <div class="field-error" id="err-pin-confirm">Les codes ne correspondent pas</div>
-      </div>
-      <button class="btn btn-primary" id="btn-pin-next" type="button">Continuer →</button>
-    </div>
-  </div>
-
   <!-- PAGE : COMPOSITION DU MESSAGE -->
   <div class="page" id="page-form">
-    <div class="steps"><div class="step-dot"></div><div class="step-dot active"></div><div class="step-dot"></div></div>
+    <div class="steps"><div class="step-dot active"></div><div class="step-dot"></div></div>
 
     <div class="card">
       <h2 class="card-title">Composition du message</h2>
       <p class="card-subtitle">Étape 2 — Activez les modules souhaités</p>
       <div class="info-row tip"><span>◈</span><span>Seul le prénom du destinataire est obligatoire. Activez les modules de votre choix.</span></div>
+      <div style="display:flex;align-items:center;gap:.6rem;padding:.6rem .9rem;background:rgba(139,105,20,.04);border:1px solid rgba(139,105,20,.12);font-size:.68rem;color:var(--text-m);">
+        <span>◈</span><span>Commande <strong id="form-order-display" style="font-family:monospace;color:var(--dark);"></strong> — Code <strong id="form-code-display" style="font-family:monospace;color:var(--gold);"></strong></span>
+      </div>
     </div>
 
     <!-- Destinataire -->
@@ -467,7 +429,7 @@ header{text-align:center;padding:3rem 2rem 1.5rem;position:relative;z-index:1;}
 
   <!-- PAGE : SUCCÈS -->
   <div class="page" id="page-success">
-    <div class="steps"><div class="step-dot"></div><div class="step-dot"></div><div class="step-dot active"></div></div>
+    <div class="steps"><div class="step-dot"></div><div class="step-dot active"></div></div>
     <div class="card" style="text-align:center;">
       <div class="success-icon">✦</div>
       <h2 class="card-title" style="text-align:center;">Message scellé !</h2>
@@ -483,7 +445,7 @@ header{text-align:center;padding:3rem 2rem 1.5rem;position:relative;z-index:1;}
             <div class="carte-brand-s">ALNAÉ Infinity</div>
             <div class="carte-title-s">Confidente</div>
             <div class="carte-instr">Scannez le QR code ou rendez-vous sur<br><strong style="color:var(--dark);">alnaeinfinity.com/pages/confidente</strong><br>et saisissez le code ci-dessous.</div>
-            <div class="carte-code-lbl">Code du bijou</div>
+            <div class="carte-code-lbl">Code confidentiel</div>
             <div class="carte-code-val" id="carte-code-val">—</div>
           </div>
           <div id="carte-qr-display"></div>
@@ -503,7 +465,7 @@ header{text-align:center;padding:3rem 2rem 1.5rem;position:relative;z-index:1;}
 
       <div style="margin-top:1.5rem;padding:1rem;background:rgba(139,105,20,.04);border:1px solid rgba(139,105,20,.15);font-size:.7rem;color:var(--text-m);line-height:1.7;text-align:left;">
         <strong style="color:var(--dark);">Prochaine étape :</strong><br>
-        Imprimez cette carte, découpez-la et glissez-la dans le paquet cadeau. Le destinataire n'aura qu'à scanner le QR code ou saisir le code du bijou pour découvrir votre message. Son PIN lui sera communiqué séparément par vos soins.
+        Imprimez cette carte, découpez-la et glissez-la dans le paquet cadeau. Le destinataire n'aura qu'à scanner le QR code ou saisir le code du bijou <strong>et son code confidentiel</strong> pour découvrir votre message.
       </div>
     </div>
   </div>
@@ -522,7 +484,6 @@ const state = {
   clientCode: '',
   orderNumber: '',
   codeIndex: 1,
-  pin: '',
   currentOccasion: '',
   preview: null,
   messageRecord: null,
@@ -548,8 +509,7 @@ function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.
 function setText(id,v){const e=g(id);if(e)e.textContent=v??'';}
 function setErr(id,show,text=''){const e=g(id);if(!e)return;if(text)e.textContent=text;e.classList.toggle('show',!!show);}
 function setInpErr(id,show){const e=g(id);if(e)e.classList.toggle('err',!!show);}
-function getPinValue(ids){return ids.map(id=>g(id)?.value||'').join('');}
-function initPinNav(ids){ids.forEach((id,i)=>{const el=g(id);if(!el)return;el.addEventListener('input',function(){this.value=this.value.replace(/[^0-9]/g,'');if(this.value&&i<ids.length-1)g(ids[i+1])?.focus();});el.addEventListener('keydown',function(e){if(e.key==='Backspace'&&!this.value&&i>0)g(ids[i-1])?.focus();});});}
+
 
 // ── QR CODE ───────────────────────────────────────────────────────
 function generateQR(containerId,url,size){const el=g(containerId);if(!el||typeof QRCode==='undefined')return;el.innerHTML='';new QRCode(el,{text:url,width:size||100,height:size||100,colorDark:'#1C1408',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});}
@@ -675,8 +635,8 @@ g('btn-validate-code')?.addEventListener('click', validateClientCode);
 g('client-code-input')?.addEventListener('keydown', e => { if(e.key==='Enter')validateClientCode(); });
 
 async function validateClientCode(){
-  const code = (g('client-code-input').value||'').trim().toUpperCase();
-  if(!code){setErr('err-code-box',true,'Veuillez saisir votre code unique.');setInpErr('client-code-input',true);return;}
+  const code = (g('client-code-input').value||'').replace(/\s/g,'').toUpperCase();
+  if(!code){setErr('err-code-box',true,'Veuillez saisir votre code confidentiel.');setInpErr('client-code-input',true);return;}
   setErr('err-code-box',false);setInpErr('client-code-input',false);
   const btn=g('btn-validate-code');btn.disabled=true;btn.textContent='VÉRIFICATION…';
   try{
@@ -686,27 +646,17 @@ async function validateClientCode(){
     state.clientCode=code;
     state.orderNumber=data.orderNumber||'';
     state.codeIndex=data.codeIndex||1;
-    g('order-number-display').value=state.orderNumber;
-    showPage('page-pin');
-    g('pin1')?.focus();
+    // Afficher le numéro de commande et le code dans le formulaire
+    const od=g('form-order-display');if(od)od.textContent=state.orderNumber;
+    const cd=g('form-code-display');if(cd)cd.textContent=state.clientCode;
+    showPage('page-form');
   }catch(err){
-    setErr('err-code-box',true,err.message||'Code invalide. Vérifiez l\'email reçu d\'ALNAÉ Infinity.');
+    setErr('err-code-box',true,err.message||'Code incorrect. Vérifiez votre code confidentiel et réessayez.');
     setInpErr('client-code-input',true);
-  }finally{btn.disabled=false;btn.textContent='ACCÉDER À MON FORMULAIRE →';}
+  }finally{btn.disabled=false;btn.textContent='Accéder au formulaire →';}
 }
 
-// ── ÉTAPE 2 : PIN ─────────────────────────────────────────────────
-g('btn-pin-next')?.addEventListener('click', validatePin);
-function validatePin(){
-  const pin=getPinValue(['pin1','pin2','pin3','pin4']);
-  const pinb=getPinValue(['pin1b','pin2b','pin3b','pin4b']);
-  if(pin.length!==4){setErr('err-pin',true);return;}
-  setErr('err-pin',false);
-  if(pin!==pinb){setErr('err-pin-confirm',true);return;}
-  setErr('err-pin-confirm',false);
-  state.pin=pin;
-  showPage('page-form');
-}
+
 
 // ── APERÇU ────────────────────────────────────────────────────────
 g('btn-preview')?.addEventListener('click', buildPreview);
@@ -757,13 +707,12 @@ async function sealMessage(){
   if(!state.preview)return;
   const btn=g('btn-confirm-seal');btn.disabled=true;btn.textContent='SCELLEMENT…';
   try{
-    // Générer le code bijou
-    const cleanOrder=state.orderNumber.replace(/[^a-zA-Z0-9]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'');
-    const jewelCode='CONF-'+cleanOrder+'-'+String(state.codeIndex).padStart(2,'0');
+    // Le code client IS le code bijou — 1 seul code
+    const jewelCode = state.clientCode;
 
     const body={
       clientCode:state.clientCode,
-      pin:state.pin,
+      pin:state.clientCode,  // Le code client EST le code de révélation
       jewelCode,
       recipientName:state.preview.recipient,
       occasion:state.preview.occasion||null,
@@ -841,7 +790,7 @@ function downloadSVG(){
 <text x="16" y="64" class="sb">alnaeinfinity.com/pages/confidente</text>
 <text x="16" y="76" class="s">et saisissez le code ci-dessous pour</text>
 <text x="16" y="88" class="s">découvrir votre message confidentiel.</text>
-<text x="16" y="106" class="k">CODE DU BIJOU</text>
+<text x="16" y="106" class="k">CODE CONFIDENTIEL</text>
 <rect x="16" y="111" width="${rec.jewelCode.length*8+16}" height="20" fill="white" stroke="#1C1408" stroke-width="1.5"/>
 <text x="24" y="125" class="v">${rec.jewelCode}</text>
 ${qrDataUrl?'<image x="224" y="42" width="80" height="80" xlink:href="'+qrDataUrl+'"/>':'<rect x="224" y="42" width="80" height="80" fill="#F2EDE3" stroke="#C8BAA0" stroke-width="1"/>'}
@@ -871,7 +820,7 @@ function downloadPDF(){
   doc.text('Scannez le QR code ou rendez-vous sur',4,18);
   doc.setTextColor(28,20,8);doc.setFont('helvetica','bold');doc.text('alnaeinfinity.com/pages/confidente',4,22.5);
   doc.setTextColor(90,74,42);doc.setFont('helvetica','normal');doc.text('et saisissez le code ci-dessous',4,27);doc.text('pour découvrir votre message confidentiel.',4,31);
-  doc.setFontSize(4);doc.setTextColor(138,122,96);doc.text('CODE DU BIJOU',4,37,{charSpace:1});
+  doc.setFontSize(4);doc.setTextColor(138,122,96);doc.text('CODE CONFIDENTIEL',4,37,{charSpace:1});
   doc.setDrawColor(28,20,8);doc.setLineWidth(0.5);doc.rect(4,39,rec.jewelCode.length*2.8+4,7,'S');
   doc.setFontSize(6);doc.setTextColor(28,20,8);doc.setFont('courier','bold');doc.text(rec.jewelCode,6,44.5,{charSpace:1});
   if(qrCanvas){try{doc.addImage(qrCanvas.toDataURL('image/png'),'PNG',58,14,24,24);}catch(_){}}
@@ -883,9 +832,6 @@ function downloadPDF(){
 
 // ── INIT ──────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function(){
-  initPinNav(['pin1','pin2','pin3','pin4']);
-  initPinNav(['pin1b','pin2b','pin3b','pin4b']);
-
   // Occasions
   document.querySelectorAll('.pill[data-occasion]').forEach(pill=>{
     pill.addEventListener('click',function(){
