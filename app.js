@@ -6,7 +6,7 @@ const port    = process.env.PORT || 10000;
 
 const BASE_URL     = process.env.BASE_URL     || "https://alnae-confidente-1.onrender.com";
 const ADMIN_SECRET = process.env.ADMIN_SECRET || "ALNAE-ADMIN-2026";
-const ALNAE_EMAIL  = process.env.ALNAE_EMAIL  || "commande.alnae@gmail.com";
+const ALNAE_EMAIL  = process.env.ALNAE_EMAIL  || "commande@alnaeinfinity.com";
 const SENDGRID_KEY = process.env.SENDGRID_KEY || "";
 
 app.use(express.json({ limit: "10mb" }));
