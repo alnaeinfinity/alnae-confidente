@@ -1,3 +1,4 @@
+const path = require("path");
 const express = require("express");
 const https   = require("https");
 const app     = express();
@@ -156,6 +157,10 @@ app.post("/reveal-message", (req, res) => {
 });
 
 app.get("/health", (req, res) => res.json({ ok:true, orders:orders.size, codes:codes.size, messages:messages.size, uptime:Math.floor(process.uptime())+"s" }));
+
+app.get("/formulaire", (req, res) => {
+  res.sendFile(path.join(__dirname, "alnae-formulaire-client.html"));
+});
 
 app.listen(port, () => {
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
