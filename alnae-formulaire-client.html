@@ -456,11 +456,14 @@ header{text-align:center;padding:3rem 2rem 1.5rem;position:relative;z-index:1;}
       <!-- Boutons export -->
       <div class="export-btns">
         <button class="export-btn export-btn-primary" id="btn-print">🖨️ Imprimer</button>
-        <button class="export-btn" id="btn-dl-svg">⬇ SVG (laser)</button>
-        <button class="export-btn" id="btn-dl-pdf-card">⬇ PDF (jet d'encre)</button>
+        <button class="export-btn" id="btn-dl-png">⬇ PNG</button>
+        <button class="export-btn" id="btn-dl-pdf-card">⬇ PDF</button>
+        <button class="export-btn" id="btn-dl-svg">⬇ SVG</button>
       </div>
-      <div style="margin-top:.5rem;font-size:.63rem;color:var(--text-d);text-align:left;">
-        SVG = vectoriel, qualité parfaite pour imprimante laser · PDF = recommandé pour jet d'encre
+      <div style="margin-top:.5rem;font-size:.63rem;color:var(--text-d);text-align:left;line-height:1.7;">
+        <strong>PNG</strong> = image haute qualité, redimensionnable librement ·
+        <strong>PDF</strong> = jet d'encre ·
+        <strong>SVG</strong> = vectoriel, imprimante laser
       </div>
 
       <div style="margin-top:1.5rem;padding:1rem;background:rgba(139,105,20,.04);border:1px solid rgba(139,105,20,.15);font-size:.7rem;color:var(--text-m);line-height:1.7;text-align:left;">
@@ -521,36 +524,99 @@ function launchConfetti(){const c=g('confetti');if(!c)return;c.innerHTML='';for(
 async function fetchEtymIA(prenom){
   const key=norm(prenom);
   if(state.cachedEtym[key])return state.cachedEtym[key];
+  const genre=detectGenre(prenom);
+  const gLabel=genre==='M'?'masculin':'féminin';
   try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:350,system:'Expert etymologie prenoms. 3 paragraphes poetiques separes par ligne vide. 1:racine linguistique. 2:personnalite accordee au genre. 3:phrase finale forte. Tutoiement. Pas de markdown.',messages:[{role:'user',content:'Etymologie poetique du prenom '+prenom+' (genre: '+(detectGenre(prenom)==='M'?'masculin':'feminin')+')'}]})});
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',max_tokens:400,
+        system:`Tu es une poétesse qui écrit pour une marque de bijoux de luxe français, ALNAÉ Infinity.
+Tu écris l'essence d'un prénom — pas une définition, une émotion.
+Structure : 3 courts paragraphes séparés par une ligne vide.
+1. L'origine du prénom, racontée comme une légende douce (2 phrases max)
+2. Ce que ce prénom révèle de la personne qui le porte — accordé au genre ${gLabel} (2 phrases intimes, en tutoiement)
+3. Une phrase finale courte, forte, qui reste gravée dans la mémoire
+Ton : poétique, intime, précis. Pas de liste, pas de tiret, pas de guillemets, pas de markdown.
+Ce texte sera gravé sur une carte qui accompagne un bijou. Chaque mot compte.`,
+        messages:[{role:'user',content:`Prénom : ${prenom}. Genre : ${gLabel}. Écris l'essence de ce prénom.`}]
+      })
+    });
     const d=await r.json();const t=d.content?.[0]?.text;
     if(t){const c=t.replace(/\*([^*]+)\*/g,'$1').trim();state.cachedEtym[key]=c;return c;}
   }catch(_){}
-  const gk=detectGenre(prenom);
-  return gk==='M'?'Le prénom '+prenom+' porte en lui la force de tous ceux qui l\'ont porté avant toi.\n\nIl incarne une énergie noble et singulière, celle d\'un homme qui trace sa voie.\n\nPorte-le avec fierté. Il te ressemble.'
-    :'Le prénom '+prenom+' porte en lui la grâce de toutes celles qui l\'ont porté avant toi.\n\nIl incarne une énergie singulière, celle d\'une femme qui avance avec élégance.\n\nPorte-le avec fierté. Il te ressemble.';
+  const g2=detectGenre(prenom);
+  return g2==='M'
+    ?`${prenom} porte en lui la force tranquille de ceux qui savent qui ils sont.
+
+Il avance avec une clarté rare — celle des hommes qui ne cherchent plus à prouver, mais à créer.
+
+Porte-le. Il te va bien.`
+    :`${prenom} porte en lui la grâce de celles qui ont su traverser les tempêtes sans perdre leur lumière.
+
+Il incarne une douceur qui ne capitule pas, une élégance qui vient de l'intérieur.
+
+Porte-le. Il te ressemble.`;
 }
 
 // ── IA CITATION ───────────────────────────────────────────────────
 async function fetchMotivIA(prenom,occasion,msg){
   const genre=detectGenre(prenom);
-  const ctx=(occasion?'Occasion: '+occasion+'. ':'')+( msg?'Ton du message: '+msg.slice(0,80):'');
+  const gLabel=genre==='M'?'masculin':'féminin';
+  const ctx=[];
+  if(occasion&&occasion!=='Autre')ctx.push(`Occasion : ${occasion}`);
+  if(msg)ctx.push(`Contexte émotionnel du message : "${msg.slice(0,120)}"`);
+  const contextStr=ctx.join('. ');
   try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:120,system:'Tu es ALNAÉ Infinity, marque de bijoux premium. UNE citation courte (max 2 phrases) pour bijou offert. Accordée au genre ('+(genre==='M'?'masculin':'féminin')+'). En lien avec le contexte. Termine par "N\'oublie pas qui tu es." Pas de guillemets.',messages:[{role:'user',content:'Bijou pour '+prenom+'. '+(ctx||'Occasion spéciale.')}]})});
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',max_tokens:150,
+        system:`Tu es la voix d'ALNAÉ Infinity — une marque de bijoux français haut de gamme qui croit que chaque bijou porte une âme.
+Tu écris UNE citation courte (2 à 3 phrases max) qui accompagnera un bijou offert.
+Cette citation doit :
+- être accordée au genre ${gLabel} du destinataire
+- résonner avec le contexte émotionnel fourni
+- ne jamais être générique — elle doit sembler écrite uniquement pour cette personne
+- se terminer TOUJOURS par cette phrase signature : « N'oublie pas qui tu es. »
+Ton : entre Rilke et une lettre d'amour. Poétique, puissant, intime.
+Pas de guillemets dans le texte. Pas de tiret. Pas de markdown.`,
+        messages:[{role:'user',content:`Prénom du destinataire : ${prenom}. ${contextStr||'Bijou offert avec amour.'}`}]
+      })
+    });
     const d=await r.json();const t=d.content?.[0]?.text;
     if(t)return t.replace(/\*([^*]+)\*/g,'$1').trim();
   }catch(_){}
-  const list=CITATIONS[genre]||CITATIONS.F;return list[Math.floor(Math.random()*list.length)];
+  const list=CITATIONS[genre]||CITATIONS.F;
+  return list[Math.floor(Math.random()*list.length)];
 }
 
 // ── IA SUGGESTIONS ────────────────────────────────────────────────
 async function fetchSuggestionsIA(occasion,prenom){
   const genre=detectGenre(prenom||'');
+  const gLabel=genre==='M'?'masculin':'féminin';
   try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:500,system:'Expert messages pour bijoux haut de gamme. UNIQUEMENT JSON valide. Format: {"suggestions":["msg1","msg2","msg3"]}. 3 messages: 2-3 phrases, poétiques, genre '+(genre==='M'?'masculin':'féminin')+'. Tutoiement.',messages:[{role:'user',content:'Occasion: '+occasion+'. Prénom: '+(prenom||'le destinataire')+'. 3 messages inspirants.'}]})});
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',max_tokens:600,
+        system:`Tu es une autrice spécialisée dans les messages accompagnant des bijoux de luxe.
+Tu vas écrire 3 messages distincts pour accompagner un bijou offert lors d'une occasion précise.
+Chaque message doit :
+- faire entre 2 et 4 phrases
+- être accordé au genre ${gLabel} du destinataire
+- être unique dans son ton : le 1er touchant, le 2e poétique, le 3e puissant
+- sonner comme écrit à la main, pas comme un template
+- utiliser le tutoiement
+- ne jamais être banal ou générique
+Réponds UNIQUEMENT en JSON valide, sans markdown, sans commentaire.
+Format exact : {"suggestions":["message1","message2","message3"]}`,
+        messages:[{role:'user',content:`Occasion : ${occasion}. Prénom du destinataire : ${prenom||'le destinataire'} (genre : ${gLabel}).`}]
+      })
+    });
     const d=await r.json();const t=d.content?.[0]?.text||'{}';
-    const parsed=JSON.parse(t.replace(/[\u0060]{3}json|[\u0060]{3}/g,'').trim());
-    if(parsed.suggestions?.length)return parsed.suggestions;
+    const parsed=JSON.parse(t.replace(/[`]{3}json|[`]{3}/g,'').trim());
+    if(parsed.suggestions?.length>=3)return parsed.suggestions;
   }catch(_){}
   return SUGGESTIONS[occasion]||null;
 }
@@ -744,91 +810,247 @@ async function sealMessage(){
 g('btn-print')?.addEventListener('click', printCarte);
 g('btn-dl-svg')?.addEventListener('click', downloadSVG);
 g('btn-dl-pdf-card')?.addEventListener('click', downloadPDF);
+g('btn-dl-png')?.addEventListener('click', downloadPNG);
 
-function printCarte(){
-  const rec=state.messageRecord;if(!rec)return;
-  const qrCanvas=g('carte-qr-display')?.querySelector('canvas');
-  const qrDataUrl=qrCanvas?qrCanvas.toDataURL('image/png'):'';
-  const w=window.open('','_blank','width=500,height=600');
-  w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Carte ALNAÉ</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400&family=Raleway:wght@300;400&display=swap" rel="stylesheet">
-<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;font-family:'Raleway',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
-.carte{width:320px;background:white;border:1.5px solid #1C1408;overflow:hidden;}
-.ct{background:white;border-bottom:2px solid #1C1408;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;}
-.cb{font-size:8px;letter-spacing:3px;text-transform:uppercase;color:#8B6914;}.cn{font-family:'Playfair Display',serif;font-size:18px;font-style:italic;color:#1C1408;}.cd{color:#8B6914;font-size:12px;}
-.cc{padding:14px 16px;display:flex;gap:12px;align-items:center;}.cl{flex:1;}
-.ci{font-size:9px;color:#5A4A2A;line-height:1.65;margin-bottom:10px;}.ci strong{color:#1C1408;}
-.ck{font-size:7px;letter-spacing:2px;text-transform:uppercase;color:#8A7A60;margin-bottom:4px;}
-.cv{background:white;color:#1C1408;border:1.5px solid #1C1408;padding:4px 8px;font-family:monospace;font-size:11px;letter-spacing:2px;display:inline-block;font-weight:bold;}
-.cq img{width:80px;height:80px;display:block;border:1px solid #E8E2D4;}.cq-ph{width:80px;height:80px;background:#F2EDE3;border:1px solid #C8BAA0;display:flex;align-items:center;justify-content:center;font-size:8px;color:#8A7A60;text-align:center;}
-.cf{border-top:1px solid #E8E2D4;padding:6px 16px;display:flex;align-items:center;justify-content:space-between;}
-.cu{font-size:7px;color:#8A7A60;}.actions{margin-top:20px;display:flex;gap:10px;}
-.bp{padding:10px 24px;background:#1C1408;color:white;border:none;font-family:'Raleway',sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;}
-.bc{padding:10px 20px;background:white;border:1px solid #C8BAA0;color:#5A4A2A;font-family:'Raleway',sans-serif;font-size:11px;cursor:pointer;}
-@media print{body{padding:0;}.actions{display:none;}}</style></head>
-<body><div class="carte"><div class="ct"><div><div class="cb">ALNAÉ Infinity</div><div class="cn">Confidente</div></div><div class="cd">◆</div></div>
-<div class="cc"><div class="cl"><div class="ci">Scannez le QR code ou rendez-vous sur<br><strong>alnaeinfinity.com/pages/confidente</strong><br>et saisissez le code ci-dessous pour découvrir votre message confidentiel.</div>
-<div class="ck">Code du bijou</div><div class="cv">${rec.jewelCode}</div></div>
-<div class="cq">${qrDataUrl?'<img src="'+qrDataUrl+'" alt="QR">':'<div class="cq-ph">QR Code</div>'}</div></div>
-<div class="cf"><span class="cu">www.alnaeinfinity.com</span><span class="cd">◆</span></div></div>
-<div class="actions"><button class="bp" onclick="window.print()">Imprimer</button><button class="bc" onclick="window.close()">Fermer</button></div>
-</body></html>`);w.document.close();
+// ── RENDU CARTE SUR CANVAS (source unique pour tous les exports) ──
+// Retourne une Promise<canvas> avec la carte complète haute qualité
+function renderCarteCanvas(scale) {
+  scale = scale || 3; // 3x = haute résolution impression
+  const W = 360, H = 540; // carte verticale format A6 environ
+
+  const canvas = document.createElement('canvas');
+  canvas.width  = W * scale;
+  canvas.height = H * scale;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(scale, scale);
+
+  // ── Fond blanc ──
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, W, H);
+
+  // ── Bordure fine ──
+  ctx.strokeStyle = '#1C1408';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(1, 1, W-2, H-2);
+
+  // ── Bande décorative dorée en haut ──
+  ctx.fillStyle = '#1C1408';
+  ctx.fillRect(0, 0, W, 56);
+
+  // ── Ligne or sous la bande ──
+  const grad = ctx.createLinearGradient(0, 56, W, 56);
+  grad.addColorStop(0, 'transparent');
+  grad.addColorStop(0.5, '#8B6914');
+  grad.addColorStop(1, 'transparent');
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = 1;
+  ctx.beginPath();ctx.moveTo(0,57);ctx.lineTo(W,57);ctx.stroke();
+
+  // ── Marque ALNAÉ ──
+  ctx.fillStyle = '#8B6914';
+  ctx.font = '600 8px "Arial", sans-serif';
+  ctx.letterSpacing = '3px';
+  ctx.textAlign = 'center';
+  ctx.fillText('A L N A É   I N F I N I T Y', W/2, 22);
+
+  // ── Titre Confidente ──
+  ctx.fillStyle = '#F0EBE0';
+  ctx.font = 'italic 26px "Georgia", serif';
+  ctx.fillText('Confidente', W/2, 44);
+
+  // ── Diamant décoratif ──
+  ctx.fillStyle = '#8B6914';
+  ctx.font = '14px serif';
+  ctx.fillText('◆', W/2, 80);
+
+  // ── QR CODE (depuis le canvas généré) ──
+  const qrEl = document.getElementById('carte-qr-display');
+  const qrCanvas = qrEl ? qrEl.querySelector('canvas') : null;
+  const qrSize = 120;
+  const qrX = (W - qrSize) / 2;
+  const qrY = 96;
+  if (qrCanvas) {
+    // Fond blanc sous le QR
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(qrX - 4, qrY - 4, qrSize + 8, qrSize + 8);
+    ctx.strokeStyle = '#E8E2D4';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(qrX - 4, qrY - 4, qrSize + 8, qrSize + 8);
+    ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
+  } else {
+    // Placeholder QR
+    ctx.fillStyle = '#F2EDE3';
+    ctx.fillRect(qrX, qrY, qrSize, qrSize);
+    ctx.fillStyle = '#8A7A60';
+    ctx.font = '10px Arial';
+    ctx.fillText('QR Code', W/2, qrY + qrSize/2);
+  }
+
+  // ── Séparateur ──
+  ctx.strokeStyle = '#E8E2D4';
+  ctx.lineWidth = 1;
+  const sepY = qrY + qrSize + 18;
+  ctx.beginPath();ctx.moveTo(40, sepY);ctx.lineTo(W-40, sepY);ctx.stroke();
+  ctx.fillStyle = '#8B6914';
+  ctx.font = '6px serif';
+  ctx.fillText('◆', W/2, sepY + 4);
+
+  // ── Instructions ──
+  ctx.fillStyle = '#5A4A2A';
+  ctx.font = '10px Arial';
+  ctx.textAlign = 'center';
+  const instrY = sepY + 20;
+  ctx.fillText('Rendez-vous sur', W/2, instrY);
+  ctx.fillStyle = '#1C1408';
+  ctx.font = 'bold 10px Arial';
+  ctx.fillText('alnaeinfinity.com/pages/confidente', W/2, instrY + 15);
+  ctx.fillStyle = '#5A4A2A';
+  ctx.font = '10px Arial';
+  ctx.fillText('et saisissez votre code confidentiel', W/2, instrY + 30);
+  ctx.fillText('pour découvrir votre message.', W/2, instrY + 45);
+
+  // ── Code confidentiel ──
+  const rec = state.messageRecord;
+  const code = rec ? rec.jewelCode : '—';
+  const codeY = instrY + 70;
+
+  // Fond code
+  ctx.fillStyle = '#F8F4EE';
+  ctx.strokeStyle = '#1C1408';
+  ctx.lineWidth = 1.5;
+  const codeW = 200, codeH = 30;
+  const codeX = (W - codeW) / 2;
+  ctx.fillRect(codeX, codeY - 20, codeW, codeH);
+  ctx.strokeRect(codeX, codeY - 20, codeW, codeH);
+
+  // Label
+  ctx.fillStyle = '#8A7A60';
+  ctx.font = '7px Arial';
+  ctx.letterSpacing = '1px';
+  ctx.fillText('C O D E   C O N F I D E N T I E L', W/2, codeY - 6);
+
+  // Code valeur
+  ctx.fillStyle = '#1C1408';
+  ctx.font = 'bold 13px "Courier New", monospace';
+  ctx.letterSpacing = '2px';
+  ctx.fillText(code, W/2, codeY + 4);
+
+  // ── Pied de page ──
+  const footerY = H - 28;
+  ctx.strokeStyle = '#E8E2D4';
+  ctx.lineWidth = 1;
+  ctx.beginPath();ctx.moveTo(20, footerY - 8);ctx.lineTo(W-20, footerY - 8);ctx.stroke();
+  ctx.fillStyle = '#8A7A60';
+  ctx.font = '7.5px Arial';
+  ctx.letterSpacing = '0.5px';
+  ctx.fillText('www.alnaeinfinity.com', W/2, footerY + 4);
+  ctx.fillStyle = '#8B6914';
+  ctx.font = '8px serif';
+  ctx.fillText('◆   ◆   ◆', W/2, footerY + 16);
+
+  return canvas;
 }
 
-function downloadSVG(){
-  const rec=state.messageRecord;if(!rec)return;
-  const qrCanvas=g('carte-qr-display')?.querySelector('canvas');
-  const qrDataUrl=qrCanvas?qrCanvas.toDataURL('image/png'):'';
-  const svg=`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="320" height="180" viewBox="0 0 320 180">
-<defs><style>.b{font:8px Arial,sans-serif;letter-spacing:2;fill:#8B6914;}.t{font:italic 17px Georgia,serif;fill:#1C1408;}.s{font:9px Arial,sans-serif;fill:#5A4A2A;}.sb{font:bold 9px Arial,sans-serif;fill:#1C1408;}.k{font:7px Arial,sans-serif;letter-spacing:1;fill:#8A7A60;}.v{font:bold 11px 'Courier New',monospace;letter-spacing:2;fill:#1C1408;}.u{font:7px Arial,sans-serif;fill:#8A7A60;}</style></defs>
-<rect x="1" y="1" width="318" height="178" fill="white" stroke="#1C1408" stroke-width="1.5"/>
-<line x1="1" y1="36" x2="319" y2="36" stroke="#1C1408" stroke-width="2"/>
-<text x="16" y="17" class="b">ALNAÉ INFINITY</text>
-<text x="16" y="30" class="t">Confidente</text>
-<text x="295" y="25" style="font:14px Georgia,serif;fill:#8B6914;">◆</text>
-<text x="16" y="52" class="s">Scannez le QR code ou rendez-vous sur</text>
-<text x="16" y="64" class="sb">alnaeinfinity.com/pages/confidente</text>
-<text x="16" y="76" class="s">et saisissez le code ci-dessous pour</text>
-<text x="16" y="88" class="s">découvrir votre message confidentiel.</text>
-<text x="16" y="106" class="k">CODE CONFIDENTIEL</text>
-<rect x="16" y="111" width="${rec.jewelCode.length*8+16}" height="20" fill="white" stroke="#1C1408" stroke-width="1.5"/>
-<text x="24" y="125" class="v">${rec.jewelCode}</text>
-${qrDataUrl?'<image x="224" y="42" width="80" height="80" xlink:href="'+qrDataUrl+'"/>':'<rect x="224" y="42" width="80" height="80" fill="#F2EDE3" stroke="#C8BAA0" stroke-width="1"/>'}
-<line x1="1" y1="158" x2="319" y2="158" stroke="#E8E2D4" stroke-width="1"/>
-<text x="16" y="172" class="u">www.alnaeinfinity.com</text>
-<text x="294" y="172" class="u">◆</text>
+// ── IMPRESSION ────────────────────────────────────────────────────
+function printCarte() {
+  const rec = state.messageRecord; if(!rec)return;
+  const canvas = renderCarteCanvas(3);
+  const dataUrl = canvas.toDataURL('image/png');
+  const w = window.open('', '_blank', 'width=520,height=780');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Carte ALNAÉ — ${rec.jewelCode}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#f5f5f5;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px;font-family:Arial,sans-serif;}
+img{max-width:360px;width:100%;box-shadow:0 4px 20px rgba(0,0,0,.15);display:block;}
+.actions{margin-top:18px;display:flex;gap:10px;}
+.btn{padding:10px 22px;border:none;font-size:12px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-family:Arial,sans-serif;}
+.bp{background:#1C1408;color:white;}
+.bc{background:white;border:1px solid #C8BAA0;color:#5A4A2A;}
+@media print{body{background:white;padding:0;}.actions{display:none;}img{box-shadow:none;max-width:100%;}}
+</style></head><body>
+<img src="${dataUrl}" alt="Carte ALNAÉ Confidente">
+<div class="actions">
+<button class="btn bp" onclick="window.print()">Imprimer</button>
+<button class="btn bc" onclick="window.close()">Fermer</button>
+</div></body></html>`);
+  w.document.close();
+}
+
+// ── TÉLÉCHARGER PNG ───────────────────────────────────────────────
+function downloadPNG() {
+  const rec = state.messageRecord; if(!rec)return;
+  const canvas = renderCarteCanvas(4); // 4x pour impression haute qualité
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'carte-alnae-' + rec.jewelCode + '.png';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  }, 'image/png', 1.0);
+}
+
+// ── TÉLÉCHARGER SVG ───────────────────────────────────────────────
+function downloadSVG() {
+  const rec = state.messageRecord; if(!rec)return;
+  const qrEl = document.getElementById('carte-qr-display');
+  const qrCanvas = qrEl ? qrEl.querySelector('canvas') : null;
+  const qrDataUrl = qrCanvas ? qrCanvas.toDataURL('image/png') : '';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="360" height="540" viewBox="0 0 360 540">
+  <defs><style>
+    .brand{font:600 8px Arial,sans-serif;fill:#8B6914;letter-spacing:3;}
+    .title{font:italic 26px Georgia,serif;fill:#F0EBE0;}
+    .instr{font:10px Arial,sans-serif;fill:#5A4A2A;text-anchor:middle;}
+    .instrb{font:bold 10px Arial,sans-serif;fill:#1C1408;text-anchor:middle;}
+    .klbl{font:7px Arial,sans-serif;fill:#8A7A60;text-anchor:middle;letter-spacing:1;}
+    .kval{font:bold 13px 'Courier New',monospace;fill:#1C1408;text-anchor:middle;letter-spacing:2;}
+    .url{font:7.5px Arial,sans-serif;fill:#8A7A60;text-anchor:middle;}
+  </style></defs>
+  <rect width="360" height="540" fill="white"/>
+  <rect width="360" height="540" fill="none" stroke="#1C1408" stroke-width="1.5"/>
+  <rect width="360" height="56" fill="#1C1408"/>
+  <text x="180" y="22" class="brand" text-anchor="middle">A L N A É   I N F I N I T Y</text>
+  <text x="180" y="44" class="title" text-anchor="middle">Confidente</text>
+  <text x="180" y="80" style="font:14px serif;fill:#8B6914;text-anchor:middle;">◆</text>
+  ${qrDataUrl
+    ? `<rect x="116" y="92" width="128" height="128" fill="white" stroke="#E8E2D4"/>
+       <image x="120" y="96" width="120" height="120" href="${qrDataUrl}"/>`
+    : `<rect x="120" y="96" width="120" height="120" fill="#F2EDE3" stroke="#C8BAA0"/>`}
+  <line x1="40" y1="238" x2="320" y2="238" stroke="#E8E2D4"/>
+  <text x="180" y="244" style="font:6px serif;fill:#8B6914;text-anchor:middle;">◆</text>
+  <text x="180" y="264" class="instr">Rendez-vous sur</text>
+  <text x="180" y="281" class="instrb">alnaeinfinity.com/pages/confidente</text>
+  <text x="180" y="298" class="instr">et saisissez votre code confidentiel</text>
+  <text x="180" y="314" class="instr">pour découvrir votre message.</text>
+  <rect x="80" y="335" width="200" height="30" fill="#F8F4EE" stroke="#1C1408" stroke-width="1.5"/>
+  <text x="180" y="346" class="klbl">C O D E   C O N F I D E N T I E L</text>
+  <text x="180" y="358" class="kval">${rec.jewelCode}</text>
+  <line x1="20" y1="498" x2="340" y2="498" stroke="#E8E2D4"/>
+  <text x="180" y="510" class="url">www.alnaeinfinity.com</text>
+  <text x="180" y="526" style="font:8px serif;fill:#8B6914;text-anchor:middle;">◆   ◆   ◆</text>
 </svg>`;
-  const blob=new Blob([svg],{type:'image/svg+xml'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download='carte-alnae-'+rec.jewelCode+'.svg';
-  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  const blob = new Blob([svg], {type:'image/svg+xml'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'carte-alnae-' + rec.jewelCode + '.svg';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 
-function downloadPDF(){
-  const rec=state.messageRecord;if(!rec)return;
-  if(typeof window.jspdf==='undefined'){alert('PDF non disponible.');return;}
-  const{jsPDF}=window.jspdf;
-  const doc=new jsPDF({unit:'mm',format:[85.6,54]});
-  const qrCanvas=g('carte-qr-display')?.querySelector('canvas');
-  doc.setFillColor(255,255,255);doc.rect(0,0,85.6,54,'F');
-  doc.setDrawColor(28,20,8);doc.setLineWidth(0.5);doc.rect(0.5,0.5,84.6,53,'S');
-  doc.setLineWidth(0.7);doc.line(0.5,12,85.1,12);
-  doc.setFontSize(5);doc.setTextColor(139,105,20);doc.setFont('helvetica','normal');doc.text('ALNAÉ INFINITY',4,6,{charSpace:1.5});
-  doc.setFontSize(9);doc.setTextColor(28,20,8);doc.setFont('times','italic');doc.text('Confidente',4,11);
-  doc.setFontSize(8);doc.setTextColor(139,105,20);doc.text('◆',79,8);
-  doc.setFontSize(4.5);doc.setTextColor(90,74,42);doc.setFont('helvetica','normal');
-  doc.text('Scannez le QR code ou rendez-vous sur',4,18);
-  doc.setTextColor(28,20,8);doc.setFont('helvetica','bold');doc.text('alnaeinfinity.com/pages/confidente',4,22.5);
-  doc.setTextColor(90,74,42);doc.setFont('helvetica','normal');doc.text('et saisissez le code ci-dessous',4,27);doc.text('pour découvrir votre message confidentiel.',4,31);
-  doc.setFontSize(4);doc.setTextColor(138,122,96);doc.text('CODE CONFIDENTIEL',4,37,{charSpace:1});
-  doc.setDrawColor(28,20,8);doc.setLineWidth(0.5);doc.rect(4,39,rec.jewelCode.length*2.8+4,7,'S');
-  doc.setFontSize(6);doc.setTextColor(28,20,8);doc.setFont('courier','bold');doc.text(rec.jewelCode,6,44.5,{charSpace:1});
-  if(qrCanvas){try{doc.addImage(qrCanvas.toDataURL('image/png'),'PNG',58,14,24,24);}catch(_){}}
-  doc.setDrawColor(232,226,212);doc.setLineWidth(0.3);doc.line(0.5,47,85.1,47);
-  doc.setFontSize(4);doc.setTextColor(138,122,96);doc.setFont('helvetica','normal');doc.text('www.alnaeinfinity.com',4,51);
-  doc.setTextColor(139,105,20);doc.text('◆',80,51);
-  doc.save('carte-alnae-'+rec.jewelCode+'.pdf');
+// ── TÉLÉCHARGER PDF ───────────────────────────────────────────────
+function downloadPDF() {
+  const rec = state.messageRecord; if(!rec)return;
+  if(typeof window.jspdf==='undefined'){alert('PDF non disponible. Utilisez le bouton PNG.');return;}
+  const {jsPDF} = window.jspdf;
+  // Générer la carte en canvas puis l'intégrer dans le PDF
+  const cardCanvas = renderCarteCanvas(3);
+  const cardDataUrl = cardCanvas.toDataURL('image/png', 1.0);
+  // Format: carte verticale 90×135mm (proche A6)
+  const doc = new jsPDF({unit:'mm', format:[90, 135]});
+  doc.addImage(cardDataUrl, 'PNG', 0, 0, 90, 135);
+  doc.save('carte-alnae-' + rec.jewelCode + '.pdf');
 }
+
+
 
 // ── INIT ──────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function(){
