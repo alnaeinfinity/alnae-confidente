@@ -1,14 +1,29 @@
-const path = require("path");
+// ═══════════════════════════════════════════════════════════════════
+//  ALNAÉ Confidente — Serveur Render v3
+//  Nouveautés v3 :
+//  - Envoi email réel via Resend (commande@alnaeinfinity.com)
+//  - IA étymologie + citation déplacées côté serveur
+//  - Notification admin automatique à chaque scellement
+//  - Usage unique renforcé
+// ═══════════════════════════════════════════════════════════════════
+
 const express = require("express");
 const https   = require("https");
+const http    = require("http");
 const app     = express();
 const port    = process.env.PORT || 10000;
 
-const BASE_URL     = process.env.BASE_URL     || "https://alnae-confidente-1.onrender.com";
-const ADMIN_SECRET = process.env.ADMIN_SECRET || "ALNAE-ADMIN-2026";
-const ALNAE_EMAIL  = process.env.ALNAE_EMAIL  || "commande@alnaeinfinity.com";
-const SENDGRID_KEY = process.env.SENDGRID_KEY || "";
+// ── VARIABLES D'ENVIRONNEMENT ─────────────────────────────────────
+const BASE_URL        = process.env.BASE_URL        || "https://alnae-confidente-1.onrender.com";
+const ADMIN_SECRET    = process.env.ADMIN_SECRET    || "ALNAE-ADMIN-2026";
+const RESEND_API_KEY  = process.env.RESEND_API_KEY  || "";   // Obligatoire pour l'envoi email
+const ANTHROPIC_KEY   = process.env.ANTHROPIC_KEY   || "";   // Obligatoire pour l'IA
+const FROM_EMAIL      = "commande@alnaeinfinity.com";
+const ADMIN_EMAIL     = "commande@alnaeinfinity.com";
+const CONTACT_EMAIL   = "contact@alnaeinfinity.com";
+const FORM_URL        = process.env.FORM_URL || BASE_URL + "/formulaire";
 
+// ── MIDDLEWARES ───────────────────────────────────────────────────
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use((req, res, next) => {
@@ -19,152 +34,715 @@ app.use((req, res, next) => {
   next();
 });
 
-const orders   = new Map();
-const codes    = new Map();
-const messages = new Map();
+// ── STOCKAGE EN MÉMOIRE ───────────────────────────────────────────
+const orders   = new Map();  // orderNumber → order data
+const codes    = new Map();  // clientCode  → code data
+const messages = new Map();  // jewelCode   → message data
 
+// ── UTILITAIRES ───────────────────────────────────────────────────
 function checkAdmin(req, res) {
   const secret = req.body?.adminSecret || req.query?.secret;
-  if (secret !== ADMIN_SECRET) { res.status(401).json({ message: "Accès non autorisé." }); return false; }
+  if (secret !== ADMIN_SECRET) {
+    res.status(401).json({ message: "Accès non autorisé." });
+    return false;
+  }
   return true;
 }
 
-function sendEmail(to, subject, htmlBody) {
-  if (!SENDGRID_KEY) { console.log("[EMAIL] SendGrid non configuré. Destinataire :", to); return Promise.resolve(false); }
+function normalizeCode(code) {
+  return String(code || "").replace(/\s/g, "").toUpperCase();
+}
+
+// ── ENVOI EMAIL VIA RESEND ────────────────────────────────────────
+function sendEmailResend(to, subject, html, replyTo) {
+  if (!RESEND_API_KEY) {
+    console.log("[EMAIL] Resend non configuré. Destinataire:", to, "| Sujet:", subject);
+    return Promise.resolve({ ok: false, reason: "RESEND_API_KEY manquante" });
+  }
+
   return new Promise((resolve) => {
-    const payload = JSON.stringify({ personalizations:[{to:[{email:to}]}], from:{email:ALNAE_EMAIL,name:"ALNAÉ Infinity"}, subject, content:[{type:"text/html",value:htmlBody}] });
-    const opts = { hostname:"api.sendgrid.com", path:"/v3/mail/send", method:"POST", headers:{"Authorization":"Bearer "+SENDGRID_KEY,"Content-Type":"application/json","Content-Length":Buffer.byteLength(payload)} };
-    const r = https.request(opts, res => resolve(res.statusCode === 202));
-    r.on("error", () => resolve(false)); r.write(payload); r.end();
+    const body = JSON.stringify({
+      from:     `ALNAÉ Infinity <${FROM_EMAIL}>`,
+      to:       [to],
+      subject,
+      html,
+      reply_to: replyTo || CONTACT_EMAIL
+    });
+
+    const opts = {
+      hostname: "api.resend.com",
+      path:     "/emails",
+      method:   "POST",
+      headers: {
+        "Authorization": `Bearer ${RESEND_API_KEY}`,
+        "Content-Type":  "application/json",
+        "Content-Length": Buffer.byteLength(body)
+      }
+    };
+
+    let data = "";
+    const req = https.request(opts, (r) => {
+      r.on("data", d => data += d);
+      r.on("end", () => {
+        const success = r.statusCode === 200 || r.statusCode === 201;
+        if (!success) console.warn("[EMAIL] Resend erreur:", r.statusCode, data);
+        resolve({ ok: success, statusCode: r.statusCode, data });
+      });
+    });
+    req.on("error", (e) => { console.error("[EMAIL] Resend erreur réseau:", e); resolve({ ok: false, error: e.message }); });
+    req.write(body);
+    req.end();
   });
 }
 
-function buildGravureEmail(msg, orderNumber, clientCode) {
-  const esc = s => (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:Arial,sans-serif;background:#F2EDE3;padding:40px;">
-<div style="max-width:560px;margin:0 auto;background:white;border:1px solid #C8BAA0;padding:40px;">
-  <div style="text-align:center;margin-bottom:24px;border-bottom:1px solid #C8BAA0;padding-bottom:20px;">
-    <div style="font-size:11px;letter-spacing:4px;text-transform:uppercase;color:#8B6914;">ALNAÉ Infinity</div>
-    <h1 style="font-family:Georgia,serif;font-size:22px;font-weight:400;font-style:italic;color:#1C1408;margin:8px 0 0;">Message prêt à graver ✦</h1>
-  </div>
-  <div style="background:#F0EBE0;border:1px solid #C8BAA0;padding:16px;margin:16px 0;text-align:center;">
-    <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8A7A60;margin-bottom:6px;">Commande</div>
-    <div style="font-family:monospace;font-size:18px;letter-spacing:3px;color:#1C1408;font-weight:bold;">${esc(orderNumber)}</div>
-  </div>
-  <table style="width:100%;font-size:13px;line-height:1.8;color:#5A4A2A;">
-    <tr><td style="color:#8A7A60;width:140px;">Destinataire</td><td style="color:#1C1408;font-weight:bold;">${esc(msg.recipientName||"—")}</td></tr>
-    <tr><td style="color:#8A7A60;">Occasion</td><td>${esc(msg.occasion||"Non précisée")}</td></tr>
-    <tr><td style="color:#8A7A60;">Code bijou</td><td style="font-family:monospace;font-weight:bold;">${esc(msg.jewelCode||"—")}</td></tr>
-    <tr><td style="color:#8A7A60;">Code client</td><td style="font-family:monospace;">${esc(clientCode||"—")}</td></tr>
-    <tr><td style="color:#8A7A60;">PIN révélation</td><td style="font-family:monospace;">${esc(msg.pin||"—")}</td></tr>
-    <tr><td style="color:#8A7A60;">Scellé le</td><td>${new Date().toLocaleDateString("fr-FR",{day:"2-digit",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"})}</td></tr>
-  </table>
-  ${msg.personalMessage?`<div style="margin:16px 0;border:1px solid #C8BAA0;padding:16px;background:#F8F4EE;"><div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8A7A60;margin-bottom:6px;">Message personnel</div><p style="font-family:Georgia,serif;font-style:italic;color:#1C1408;font-size:14px;line-height:1.8;white-space:pre-wrap;margin:0;">${esc(msg.personalMessage)}</p></div>`:""}
-  ${msg.motivationText?`<div style="margin:16px 0;background:#1C1408;padding:14px 18px;"><div style="font-size:10px;letter-spacing:2px;color:#8B6914;margin-bottom:6px;">Citation ALNAÉ</div><p style="font-family:Georgia,serif;font-style:italic;color:#F0EBE0;font-size:13px;line-height:1.7;white-space:pre-wrap;margin:0;">${esc(msg.motivationText)}</p></div>`:""}
-  <div style="margin-top:24px;padding-top:16px;border-top:1px solid #C8BAA0;font-size:11px;color:#8A7A60;text-align:center;">
-    Lien de révélation : <a href="${BASE_URL}/?code=${esc(msg.jewelCode||"")}" style="color:#8B6914;">${BASE_URL}/?code=${esc(msg.jewelCode||"")}</a><br><br>
-    ALNAÉ Infinity — <a href="https://www.alnaeinfinity.com" style="color:#8B6914;">www.alnaeinfinity.com</a>
-  </div>
-</div></body></html>`;
+// ── IA CÔTÉ SERVEUR ───────────────────────────────────────────────
+function callAnthropic(systemPrompt, userMessage, maxTokens) {
+  if (!ANTHROPIC_KEY) {
+    return Promise.resolve(null);
+  }
+
+  return new Promise((resolve) => {
+    const body = JSON.stringify({
+      model:      "claude-sonnet-4-20250514",
+      max_tokens: maxTokens || 400,
+      system:     systemPrompt,
+      messages:   [{ role: "user", content: userMessage }]
+    });
+
+    const opts = {
+      hostname: "api.anthropic.com",
+      path:     "/v1/messages",
+      method:   "POST",
+      headers: {
+        "x-api-key":         ANTHROPIC_KEY,
+        "anthropic-version": "2023-06-01",
+        "Content-Type":      "application/json",
+        "Content-Length":    Buffer.byteLength(body)
+      }
+    };
+
+    let data = "";
+    const req = https.request(opts, (r) => {
+      r.on("data", d => data += d);
+      r.on("end", () => {
+        try {
+          const parsed = JSON.parse(data);
+          const text = parsed.content?.[0]?.text;
+          resolve(text ? text.replace(/\*([^*]+)\*/g, "$1").trim() : null);
+        } catch(e) { resolve(null); }
+      });
+    });
+    req.on("error", () => resolve(null));
+    req.write(body);
+    req.end();
+  });
 }
+
+// Détection genre simple côté serveur
+function detectGenre(prenom) {
+  if (!prenom) return "neutre";
+  const prenomsMasculins = new Set([
+    "aaron","adam","adrien","alexandre","alexis","arnaud","arthur","axel","baptiste",
+    "benjamin","charles","christophe","clement","damien","daniel","david","edouard",
+    "emmanuel","ethan","etienne","felix","florian","francois","gabriel","gabin",
+    "guillaume","hugo","jean","jeremy","jerome","julien","kevin","kylian","laurent",
+    "leon","luca","lucas","leo","loic","louis","luka","mael","marc","martin",
+    "mathieu","mathis","maxime","maxence","mehdi","michael","michel","nathan",
+    "nicolas","noah","noel","nolan","olivier","oscar","paul","philippe","pierre",
+    "raphael","remi","robin","romain","ruben","samuel","sebastien","simon",
+    "stephane","tanguy","theo","thibault","thierry","thomas","timothee","tom",
+    "tristan","ugo","valentin","victor","vincent","william","xavier","yann"
+  ]);
+  const p = prenom.trim().toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .split(/[\s-]/)[0];
+  if (prenomsMasculins.has(p)) return "masculin";
+  // Heuristiques
+  const l3=p.slice(-3), l2=p.slice(-2), l1=p.slice(-1);
+  if (["ine","ene","ale","lle","tte","ise","ose","ane","elle"].includes(l3)) return "feminin";
+  if (["ia","ea","na","la","ra","sa"].includes(l2)) return "feminin";
+  if (l1==="a" && p.length>3) return "feminin";
+  if (["el","en","on","an","in","us"].includes(l2)) return "masculin";
+  if (l1==="o" && p.length>3) return "masculin";
+  return "neutre"; // si incertain → formulation neutre
+}
+
+// Textes de secours si l'IA est indisponible
+function fallbackEtym(prenom, genre) {
+  if (genre === "masculin") {
+    return `${prenom} porte en lui la force tranquille de ceux qui savent qui ils sont.\n\nIl avance avec une clarté rare — celle des hommes qui ne cherchent plus à prouver, mais à créer.\n\nPorte-le. Il te va bien.`;
+  }
+  if (genre === "feminin") {
+    return `${prenom} porte en lui la grâce de celles qui ont su traverser les tempêtes sans perdre leur lumière.\n\nIl incarne une douceur qui ne capitule pas, une élégance qui vient de l'intérieur.\n\nPorte-le. Il te ressemble.`;
+  }
+  return `${prenom} porte en lui quelque chose de rare — une énergie singulière qui appartient seulement à ceux qui osent être vraiment eux-mêmes.\n\nC'est un prénom qui laisse une trace.\n\nPorte-le. Il te ressemble.`;
+}
+
+function fallbackMotiv(genre) {
+  const citations = {
+    feminin: "Porter ce bijou, c'est porter un morceau de l'âme de quelqu'un qui croit en toi.\n\nN'oublie pas qui tu es.",
+    masculin: "Ce bijou porte avec lui tout ce que les mots n'ont pas su dire.\n\nN'oublie pas qui tu es.",
+    neutre: "Ce bijou est un morceau d'âme offert avec intention.\n\nN'oublie pas qui tu es."
+  };
+  return citations[genre] || citations.neutre;
+}
+
+// ── ENDPOINT : GÉNÉRER ÉTYMOLOGIE ────────────────────────────────
+app.post("/generate-etym", async (req, res) => {
+  const { prenom } = req.body;
+  if (!prenom) return res.status(400).json({ message: "Prénom manquant." });
+
+  const genre = detectGenre(prenom);
+  const gLabel = genre === "neutre" ? "non-binaire (formulation neutre, sans elle/il)" : genre;
+
+  const systemPrompt = `Tu es une poétesse qui écrit pour ALNAÉ Infinity, marque de bijoux de luxe français.
+Tu écris l'essence d'un prénom — pas une définition, une émotion.
+Structure : 3 courts paragraphes séparés par une ligne vide.
+1. L'origine du prénom, racontée comme une légende douce (2 phrases max)
+2. Ce que ce prénom révèle de la personne qui le porte — accordé au genre ${gLabel} (2 phrases intimes, en tutoiement)
+3. Une phrase finale courte, forte, qui reste gravée dans la mémoire
+Ton : poétique, intime, précis. Pas de liste, pas de tiret, pas de guillemets, pas de markdown.
+Ce texte sera gravé sur une carte qui accompagne un bijou. Chaque mot compte.`;
+
+  const result = await callAnthropic(systemPrompt, `Prénom : ${prenom}. Genre : ${gLabel}. Écris l'essence de ce prénom.`, 400);
+
+  return res.json({
+    etymologyText: result || fallbackEtym(prenom, genre),
+    genre,
+    source: result ? "ia" : "fallback"
+  });
+});
+
+// ── ENDPOINT : GÉNÉRER CITATION ───────────────────────────────────
+app.post("/generate-motiv", async (req, res) => {
+  const { prenom, occasion, personalMessage } = req.body;
+  if (!prenom) return res.status(400).json({ message: "Prénom manquant." });
+
+  const genre = detectGenre(prenom);
+  const gLabel = genre === "neutre" ? "non-binaire (formulation neutre)" : genre;
+  const ctx = [];
+  if (occasion && occasion !== "Autre") ctx.push(`Occasion : ${occasion}`);
+  if (personalMessage) ctx.push(`Contexte : "${personalMessage.slice(0, 120)}"`);
+
+  const systemPrompt = `Tu es la voix d'ALNAÉ Infinity — marque de bijoux français haut de gamme.
+Tu écris UNE citation courte (2 à 3 phrases max) qui accompagnera un bijou offert.
+Cette citation doit être accordée au genre ${gLabel} du destinataire, résonner avec le contexte émotionnel fourni, et ne jamais être générique.
+Elle se termine TOUJOURS par cette phrase signature : « N'oublie pas qui tu es. »
+Ton : entre Rilke et une lettre d'amour. Poétique, puissant, intime.
+Pas de guillemets dans le texte. Pas de tiret. Pas de markdown.`;
+
+  const result = await callAnthropic(
+    systemPrompt,
+    `Prénom du destinataire : ${prenom}. ${ctx.join(". ") || "Bijou offert avec amour."}`,
+    150
+  );
+
+  return res.json({
+    motivationText: result || fallbackMotiv(genre),
+    genre,
+    source: result ? "ia" : "fallback"
+  });
+});
+
+// ── ENDPOINT : GÉNÉRER SUGGESTIONS ───────────────────────────────
+app.post("/generate-suggestions", async (req, res) => {
+  const { occasion, prenom } = req.body;
+  if (!occasion) return res.status(400).json({ message: "Occasion manquante." });
+
+  const genre = detectGenre(prenom || "");
+  const gLabel = genre === "neutre" ? "non-binaire (formulation neutre, sans genrer)" : genre;
+
+  const systemPrompt = `Tu es une autrice spécialisée dans les messages accompagnant des bijoux de luxe.
+Écris 3 messages distincts pour accompagner un bijou offert lors de l'occasion indiquée.
+Chaque message : 2 à 4 phrases, accordé au genre ${gLabel}, unique dans son ton.
+Le 1er touchant, le 2e poétique, le 3e puissant.
+Tutoiement. Jamais banal ni générique.
+Réponds UNIQUEMENT en JSON valide sans markdown.
+Format exact : {"suggestions":["message1","message2","message3"]}`;
+
+  const result = await callAnthropic(
+    systemPrompt,
+    `Occasion : ${occasion}. Prénom : ${prenom || "le destinataire"} (genre : ${gLabel}).`,
+    600
+  );
+
+  let suggestions = null;
+  if (result) {
+    try {
+      const cleaned = result.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(cleaned);
+      if (parsed.suggestions?.length >= 3) suggestions = parsed.suggestions;
+    } catch(e) { /* fallback */ }
+  }
+
+  return res.json({ suggestions: suggestions || null });
+});
+
+// ── ENDPOINT ADMIN : CRÉER UNE COMMANDE ──────────────────────────
+app.post("/admin/create-order", (req, res) => {
+  if (!checkAdmin(req, res)) return;
+  const { orderNumber, clientEmail, clientName, codes: clientCodes, messageAccompagnement } = req.body;
+  if (!orderNumber || !clientEmail || !clientCodes?.length) {
+    return res.status(400).json({ message: "Données manquantes (orderNumber, clientEmail, codes requis)." });
+  }
+  if (orders.has(orderNumber)) {
+    return res.status(409).json({ message: "Cette commande existe déjà." });
+  }
+  const orderData = {
+    orderNumber, clientEmail, clientName: clientName || "",
+    codes: clientCodes.map((code, i) => ({ code, index: i+1, status: "available", jewelCode: null, sealedAt: null })),
+    messageAccompagnement: messageAccompagnement || "",
+    createdAt: new Date().toISOString()
+  };
+  orders.set(orderNumber, orderData);
+  clientCodes.forEach((code, i) => {
+    codes.set(normalizeCode(code), { orderNumber, index: i+1, status: "available", jewelCode: null, sealedAt: null });
+  });
+  console.log("[ADMIN] Commande créée :", orderNumber, "| Codes :", clientCodes.length);
+  return res.json({ ok: true, orderNumber, codesCreated: clientCodes.length });
+});
+
+// ── ENDPOINT ADMIN : ENVOYER EMAIL AU CLIENT ──────────────────────
+app.post("/admin/send-client-email", async (req, res) => {
+  if (!checkAdmin(req, res)) return;
+
+  const { orderNumber, clientEmail, clientName, codes: clientCodes } = req.body;
+  if (!orderNumber || !clientEmail || !clientCodes?.length) {
+    return res.status(400).json({ message: "Données manquantes." });
+  }
+
+  const prenom = clientName ? `<strong>${clientName}</strong>` : "Madame, Monsieur";
+  const nbBijoux = clientCodes.length;
+  const codesHtml = clientCodes.map((code, i) => `
+    <div style="margin:10px 0;">
+      <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#8A7A60;margin-bottom:5px;">
+        Code ${i+1} sur ${nbBijoux}
+      </div>
+      <div style="background:#F8F4EE;border:1.5px solid #1C1408;padding:10px 16px;font-family:'Courier New',monospace;font-size:16px;letter-spacing:3px;color:#1C1408;font-weight:bold;display:inline-block;">
+        ${code}
+      </div>
+    </div>`).join("");
+
+  const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#F2EDE3;font-family:Arial,sans-serif;">
+<div style="max-width:580px;margin:40px auto;background:#FDFAF5;border:1px solid #C8BAA0;">
+
+  <!-- En-tête -->
+  <div style="background:#1C1408;padding:28px 36px;text-align:center;">
+    <div style="font-size:10px;letter-spacing:5px;text-transform:uppercase;color:#8B6914;margin-bottom:8px;">ALNAÉ INFINITY</div>
+    <div style="font-family:Georgia,serif;font-size:24px;font-style:italic;color:#F0EBE0;font-weight:400;">Collection Confidente</div>
+  </div>
+
+  <!-- Corps -->
+  <div style="padding:36px 40px;">
+    <p style="font-size:15px;color:#1C1408;margin:0 0 16px;">Bonjour ${prenom},</p>
+
+    <p style="font-size:14px;color:#5A4A2A;line-height:1.8;margin:0 0 20px;">
+      Nous vous remercions pour votre confiance et votre commande
+      <strong style="color:#1C1408;">${orderNumber}</strong> auprès d'ALNAÉ Infinity.
+    </p>
+
+    <p style="font-size:14px;color:#5A4A2A;line-height:1.8;margin:0 0 20px;">
+      Vous avez choisi la collection <strong style="color:#1C1408;">Confidente</strong> —
+      une expérience où chaque bijou devient le messager d'un message personnel
+      que vous souhaitez transmettre à quelqu'un qui compte.
+    </p>
+
+    <p style="font-size:14px;color:#5A4A2A;line-height:1.8;margin:0 0 8px;">
+      Pour ${nbBijoux > 1 ? `personnaliser vos ${nbBijoux} bijoux` : "personnaliser votre bijou"},
+      voici ${nbBijoux > 1 ? "vos codes confidentiels exclusifs" : "votre code confidentiel exclusif"} :
+    </p>
+
+    <div style="background:#F8F4EE;border:1px solid #C8BAA0;padding:20px 24px;margin:16px 0;">
+      ${codesHtml}
+    </div>
+
+    <!-- Instructions -->
+    <div style="margin:24px 0;">
+      <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#8B6914;margin-bottom:12px;">Comment créer votre message</div>
+      <table style="width:100%;font-size:13px;color:#5A4A2A;line-height:1.9;">
+        <tr><td style="width:24px;vertical-align:top;color:#8B6914;font-weight:bold;">1.</td><td>Rendez-vous sur notre espace dédié :<br><a href="${FORM_URL}" style="color:#8B6914;font-weight:bold;">${FORM_URL}</a></td></tr>
+        <tr><td style="vertical-align:top;color:#8B6914;font-weight:bold;">2.</td><td>Saisissez votre code confidentiel — le numéro de commande <strong>${orderNumber}</strong> s'affichera automatiquement</td></tr>
+        <tr><td style="vertical-align:top;color:#8B6914;font-weight:bold;">3.</td><td>Composez votre message : texte, photo, audio ou vidéo selon votre envie</td></tr>
+        <tr><td style="vertical-align:top;color:#8B6914;font-weight:bold;">4.</td><td>Prévisualisez, puis scellez lorsque vous êtes satisfait(e)</td></tr>
+      </table>
+    </div>
+
+    <!-- Encadré important -->
+    <div style="background:#F0EBE0;border-left:3px solid #8B6914;padding:14px 18px;margin:20px 0;font-size:13px;color:#1C1408;line-height:1.7;">
+      <strong>À noter :</strong><br>
+      Chaque code est strictement personnel et à usage unique.
+      Une fois votre message scellé, il ne pourra plus être modifié.
+      Prenez le temps de relire votre message avant de valider.
+    </div>
+
+    <p style="font-size:13px;color:#5A4A2A;line-height:1.8;margin:20px 0 0;">
+      Après réception de votre message, notre équipe le prendra en charge personnellement
+      sous <strong>24 à 48h ouvrées</strong>. Votre bijou vous sera ensuite expédié par La Poste
+      et vous recevrez un email de confirmation de suivi.
+    </p>
+
+    <p style="font-size:13px;color:#5A4A2A;line-height:1.8;margin:16px 0 0;">
+      Pour toute question relative à votre commande <strong>${orderNumber}</strong>,
+      notre équipe est disponible à :
+      <a href="mailto:${CONTACT_EMAIL}" style="color:#8B6914;">${CONTACT_EMAIL}</a>
+    </p>
+
+    <p style="font-size:13px;color:#8A7A60;font-style:italic;margin:28px 0 0;">
+      Toute l'équipe ALNAÉ Infinity vous souhaite une belle expérience Confidente. ✦
+    </p>
+  </div>
+
+  <!-- Pied de page -->
+  <div style="background:#F8F4EE;border-top:1px solid #C8BAA0;padding:18px 36px;text-align:center;">
+    <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#8B6914;margin-bottom:6px;">ALNAÉ INFINITY — COLLECTION CONFIDENTE</div>
+    <a href="https://www.alnaeinfinity.com" style="font-size:12px;color:#8A7A60;text-decoration:none;">www.alnaeinfinity.com</a>
+  </div>
+
+</div>
+</body></html>`;
+
+  const subject = `ALNAÉ Infinity ✦ Votre expérience Confidente — Commande ${orderNumber}`;
+  const result = await sendEmailResend(clientEmail, subject, html, CONTACT_EMAIL);
+
+  if (result.ok) {
+    console.log("[EMAIL CLIENT] Envoyé à", clientEmail, "pour commande", orderNumber);
+    return res.json({ ok: true, message: `Email envoyé avec succès à ${clientEmail}.` });
+  } else {
+    console.error("[EMAIL CLIENT] Échec :", result);
+    return res.status(500).json({
+      ok: false,
+      message: "L'email n'a pas pu être envoyé. Vérifiez la clé RESEND_API_KEY et le domaine expéditeur.",
+      detail: result.data || result.reason || result.error
+    });
+  }
+});
+
+// ── ENDPOINT ADMIN : LISTE COMMANDES ─────────────────────────────
+app.get("/admin/orders", (req, res) => {
+  if (req.query.secret !== ADMIN_SECRET) return res.status(401).json({ message: "Accès non autorisé." });
+  const list = [...orders.values()].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  return res.json({ orders: list });
+});
+
+// ── ENDPOINT ADMIN : STATISTIQUES ────────────────────────────────
+app.get("/admin/stats", (req, res) => {
+  if (req.query.secret !== ADMIN_SECRET) return res.status(401).json({ message: "Accès non autorisé." });
+  let total = 0, sealed = 0;
+  orders.forEach(o => (o.codes || []).forEach(c => { total++; if (c.status === "sealed") sealed++; }));
+  return res.json({
+    totalOrders: orders.size, totalCodes: total, totalSealed: sealed, totalPending: total - sealed,
+    recentOrders: [...orders.values()].sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt)).slice(0,5)
+  });
+});
+
+// ── ENDPOINT CLIENT : VALIDER CODE ───────────────────────────────
+app.post("/validate-client-code", (req, res) => {
+  const { clientCode } = req.body;
+  if (!clientCode) return res.status(400).json({ message: "Code manquant." });
+
+  const normalized = normalizeCode(clientCode);
+  const codeData   = codes.get(normalized);
+
+  if (!codeData) {
+    return res.status(404).json({ message: "Code incorrect. Vérifiez votre code confidentiel et réessayez." });
+  }
+  if (codeData.status === "sealed") {
+    return res.status(410).json({
+      message: "Ce code a déjà été utilisé pour créer un message. Si vous souhaitez lire le message, rendez-vous sur la page de révélation."
+    });
+  }
+
+  const order = orders.get(codeData.orderNumber);
+  return res.json({
+    valid: true,
+    orderNumber: codeData.orderNumber,
+    codeIndex:   codeData.index,
+    clientName:  order?.clientName || ""
+  });
+});
+
+// ── ENDPOINT CLIENT : SCELLER LE MESSAGE ─────────────────────────
+app.post("/seal-message", async (req, res) => {
+  const { clientCode, pin, jewelCode, recipientName, occasion,
+          personalMessage, etymologyText, motivationText, senderLine } = req.body;
+
+  if (!pin || !jewelCode) return res.status(400).json({ message: "Données manquantes." });
+
+  const finalCode = normalizeCode(jewelCode);
+
+  // Vérifier usage unique
+  if (clientCode) {
+    const normalized = normalizeCode(clientCode);
+    const codeData   = codes.get(normalized);
+    if (codeData) {
+      if (codeData.status === "sealed") {
+        return res.status(410).json({
+          message: "Ce code a déjà été utilisé. Votre message est en cours de traitement par ALNAÉ Infinity."
+        });
+      }
+      codeData.status   = "sealed";
+      codeData.jewelCode = finalCode;
+      codeData.sealedAt  = new Date().toISOString();
+      const order = orders.get(codeData.orderNumber);
+      if (order) {
+        const ce = order.codes.find(c => normalizeCode(c.code) === normalized);
+        if (ce) { ce.status = "sealed"; ce.jewelCode = finalCode; ce.sealedAt = codeData.sealedAt; }
+      }
+    }
+  }
+
+  // Stocker le message
+  const msgData = {
+    jewelCode: finalCode, clientCode: clientCode ? normalizeCode(clientCode) : null,
+    pin: normalizeCode(pin),
+    recipientName: recipientName || "", occasion: occasion || null,
+    personalMessage: personalMessage || null, etymologyText: etymologyText || null,
+    motivationText: motivationText || null, senderLine: senderLine || "— ALNAÉ Confidente",
+    createdAt: new Date().toISOString()
+  };
+  messages.set(finalCode, msgData);
+
+  // Retrouver le numéro de commande
+  let orderNumber = "—";
+  if (clientCode) {
+    const cd = codes.get(normalizeCode(clientCode));
+    if (cd) orderNumber = cd.orderNumber;
+  }
+
+  console.log("[SEAL]", finalCode, "| Destinataire:", recipientName, "| Commande:", orderNumber);
+
+  // Email notification admin
+  const revealUrl = BASE_URL + "/?code=" + encodeURIComponent(finalCode);
+  const esc = s => (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+  const adminHtml = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#F2EDE3;font-family:Arial,sans-serif;">
+<div style="max-width:600px;margin:40px auto;background:#FDFAF5;border:1px solid #C8BAA0;">
+  <div style="background:#1C1408;padding:24px 36px;">
+    <div style="font-size:10px;letter-spacing:5px;text-transform:uppercase;color:#8B6914;margin-bottom:6px;">ALNAÉ INFINITY</div>
+    <div style="font-family:Georgia,serif;font-size:20px;font-style:italic;color:#F0EBE0;">✦ Message prêt à graver</div>
+  </div>
+  <div style="padding:32px 36px;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;color:#5A4A2A;margin-bottom:24px;">
+      <tr style="background:#F8F4EE;"><td style="padding:8px 12px;color:#8A7A60;width:160px;">Commande</td><td style="padding:8px 12px;font-family:monospace;color:#1C1408;font-weight:bold;">${esc(orderNumber)}</td></tr>
+      <tr><td style="padding:8px 12px;color:#8A7A60;border-top:1px solid #E8E2D4;">Code confidentiel</td><td style="padding:8px 12px;font-family:monospace;border-top:1px solid #E8E2D4;">${esc(clientCode||"—")}</td></tr>
+      <tr style="background:#F8F4EE;"><td style="padding:8px 12px;color:#8A7A60;">Destinataire</td><td style="padding:8px 12px;font-weight:bold;color:#1C1408;">${esc(recipientName||"—")}</td></tr>
+      <tr><td style="padding:8px 12px;color:#8A7A60;border-top:1px solid #E8E2D4;">Occasion</td><td style="padding:8px 12px;border-top:1px solid #E8E2D4;">${esc(occasion||"Non précisée")}</td></tr>
+      <tr style="background:#F8F4EE;"><td style="padding:8px 12px;color:#8A7A60;">Code bijou (QR)</td><td style="padding:8px 12px;font-family:monospace;">${esc(finalCode)}</td></tr>
+      <tr><td style="padding:8px 12px;color:#8A7A60;border-top:1px solid #E8E2D4;">Scellé le</td><td style="padding:8px 12px;border-top:1px solid #E8E2D4;">${new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"2-digit",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"})}</td></tr>
+    </table>
+    ${personalMessage ? `
+    <div style="margin:16px 0;">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8B6914;margin-bottom:8px;">Message personnel</div>
+      <div style="background:#F8F4EE;border:1px solid #C8BAA0;padding:16px;font-family:Georgia,serif;font-style:italic;font-size:14px;color:#1C1408;line-height:1.8;white-space:pre-wrap;">${esc(personalMessage)}</div>
+    </div>` : ""}
+    ${etymologyText ? `
+    <div style="margin:16px 0;">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8B6914;margin-bottom:8px;">Essence du prénom</div>
+      <div style="border-left:3px solid #8B6914;padding:10px 16px;background:#F8F4EE;font-family:Georgia,serif;font-style:italic;font-size:13px;color:#3A2C18;line-height:1.7;white-space:pre-wrap;">${esc(etymologyText)}</div>
+    </div>` : ""}
+    ${motivationText ? `
+    <div style="margin:16px 0;">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8B6914;margin-bottom:8px;">Citation ALNAÉ</div>
+      <div style="background:#1C1408;padding:14px 18px;font-family:Georgia,serif;font-style:italic;font-size:13px;color:#F0EBE0;line-height:1.7;white-space:pre-wrap;">${esc(motivationText)}</div>
+    </div>` : ""}
+    <div style="margin:24px 0;padding:14px 18px;background:#F0EBE0;border:1px solid #C8BAA0;">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8B6914;margin-bottom:8px;">Lien de révélation</div>
+      <a href="${revealUrl}" style="color:#8B6914;font-size:13px;word-break:break-all;">${revealUrl}</a>
+    </div>
+  </div>
+  <div style="background:#F8F4EE;border-top:1px solid #C8BAA0;padding:14px 36px;text-align:center;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8A7A60;">
+    ALNAÉ INFINITY — ESPACE INTERNE
+  </div>
+</div>
+</body></html>`;
+
+  const emailResult = await sendEmailResend(
+    ADMIN_EMAIL,
+    `[Confidente] ✦ Message prêt à graver — ${orderNumber} — ${recipientName}`,
+    adminHtml
+  );
+  console.log("[EMAIL ADMIN]", emailResult.ok ? "✓ Envoyé" : "⚠ Non envoyé (Resend non configuré)");
+
+  return res.json({ ok: true, jewelCode: finalCode, revealUrl });
+});
+
+// ── RÉVÉLATION : VÉRIFIER CODE BIJOU ─────────────────────────────
+app.post("/start-reveal", (req, res) => {
+  const { jewelCode } = req.body;
+  if (!jewelCode) return res.status(400).json({ message: "Code manquant." });
+  const code = normalizeCode(jewelCode);
+  if (!messages.has(code)) {
+    return res.status(404).json({ message: "Code incorrect. Vérifiez votre code confidentiel et réessayez." });
+  }
+  return res.json({ jewelCode: code });
+});
+
+// ── RÉVÉLATION : RÉVÉLER APRÈS CODE ──────────────────────────────
+app.post("/reveal-message", (req, res) => {
+  const { jewelCode, pin } = req.body;
+  if (!jewelCode || !pin) return res.status(400).json({ message: "Données manquantes." });
+  const code    = normalizeCode(jewelCode);
+  const pinNorm = normalizeCode(pin);
+  const msg     = messages.get(code);
+  if (!msg) return res.status(404).json({ message: "Code incorrect. Vérifiez votre code confidentiel et réessayez." });
+  if (msg.pin !== pinNorm) return res.status(401).json({ message: "Code incorrect. Vérifiez votre code confidentiel et réessayez." });
+  return res.json({
+    recipientName:   msg.recipientName,
+    occasion:        msg.occasion,
+    etymologyText:   msg.etymologyText,
+    personalMessage: msg.personalMessage,
+    motivationText:  msg.motivationText,
+    senderLine:      msg.senderLine
+  });
+});
+
+// ── SANTÉ ─────────────────────────────────────────────────────────
+app.get("/health", (req, res) => {
+  res.json({
+    ok: true, version: "v3",
+    orders: orders.size, codes: codes.size, messages: messages.size,
+    resend: !!RESEND_API_KEY,
+    anthropic: !!ANTHROPIC_KEY,
+    uptime: Math.floor(process.uptime()) + "s"
+  });
+});
 
 // ── PAGE RÉVÉLATION ───────────────────────────────────────────────
 app.get("/", (req, res) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.send(`<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>ALNAÉ Confidente</title><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400&family=Raleway:wght@300;400&display=swap" rel="stylesheet"><style>:root{--lin:#F2EDE3;--lb:#C8BAA0;--gold:#8B6914;--gd:#6B5010;--dark:#1C1408;--d2:#3A2C18;--tm:#5A4A2A;--td:#8A7A60;--err:#C0392B;}*{margin:0;padding:0;box-sizing:border-box;}body{background:var(--lin);color:var(--dark);font-family:'Raleway',sans-serif;font-weight:300;min-height:100vh;-webkit-font-smoothing:antialiased;}header{text-align:center;padding:2.5rem 2rem 1.5rem;}.ey{font-size:.58rem;letter-spacing:.45em;text-transform:uppercase;color:var(--gold);margin-bottom:.7rem;display:flex;align-items:center;justify-content:center;gap:.8rem;}.ey::before,.ey::after{content:'';width:30px;height:1px;background:var(--gd);}.ct{font-family:'Playfair Display',serif;font-size:3rem;font-weight:400;font-style:italic;color:var(--dark);}.tg{font-size:.62rem;letter-spacing:.3em;text-transform:uppercase;color:var(--tm);margin-top:.3rem;}.cnt{max-width:520px;margin:0 auto;padding:0 1.2rem 5rem;}.page{display:none;animation:fu .4s ease both;}.page.active{display:block;}@keyframes fu{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}.card{background:rgba(255,252,248,.9);border:1px solid var(--lb);padding:2rem 1.8rem;position:relative;overflow:hidden;margin-bottom:.8rem;}.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}.ct2{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:400;color:var(--dark);margin-bottom:.2rem;}.cs{font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--td);margin-bottom:1.4rem;}.f{margin-bottom:1rem;}.f label{display:block;font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--tm);margin-bottom:.45rem;}.f input{width:100%;padding:.8rem 1rem;border:1px solid var(--lb);background:rgba(255,252,248,.9);font-family:'Raleway',sans-serif;font-size:.88rem;font-weight:300;color:var(--dark);outline:none;transition:border-color .2s;}.f input:focus{border-color:var(--gd);}.btn{display:block;width:100%;padding:.9rem;background:var(--dark);color:var(--lin);border:none;font-family:'Raleway',sans-serif;font-size:.6rem;font-weight:500;letter-spacing:.3em;text-transform:uppercase;cursor:pointer;transition:background .3s;margin-top:.8rem;}.btn:hover{background:#2A2010;}.btn:disabled{opacity:.4;cursor:not-allowed;}.btn-g{background:var(--gold);}.btn-g:hover{background:#A07820;}.al{padding:.75rem 1rem;font-size:.72rem;line-height:1.5;margin-bottom:.9rem;display:none;border-left:2px solid;}.al.show{display:block;}.ae{background:rgba(192,57,43,.06);border-color:var(--err);color:var(--err);}.it{display:flex;gap:.6rem;align-items:flex-start;font-size:.68rem;color:var(--tm);background:rgba(139,105,20,.04);border:1px solid rgba(139,105,20,.12);padding:.65rem .9rem;margin-bottom:1rem;}.ji{font-size:2.4rem;display:block;text-align:center;margin-bottom:.9rem;animation:pulse 4s ease-in-out infinite;}@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}.ob{display:inline-block;padding:.25rem .9rem;border:1px solid var(--gd);font-size:.58rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);margin-bottom:1.1rem;}.rn{font-family:'Playfair Display',serif;font-size:2rem;font-weight:400;font-style:italic;color:var(--dark);text-align:center;margin-bottom:.2rem;}.ds{display:flex;align-items:center;justify-content:center;gap:.7rem;padding:1rem 0;}.ds::before,.ds::after{content:'';width:60px;height:1px;background:var(--lb);}.ds span{width:4px;height:4px;background:var(--gold);transform:rotate(45deg);display:block;}.eb{border-left:1px solid var(--gd);padding:.8rem 1rem;margin:1rem 0;text-align:left;background:rgba(139,105,20,.03);}.el{font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gd);margin-bottom:.3rem;}.eb p{font-family:'Playfair Display',serif;font-size:.95rem;font-style:italic;color:var(--d2);line-height:1.8;white-space:pre-wrap;}.mb{background:#E8E2D4;border:1px solid var(--lb);padding:1.4rem;margin:1rem 0;text-align:left;}.mb p{font-family:'Playfair Display',serif;font-size:1.05rem;line-height:1.9;color:var(--dark);white-space:pre-wrap;}.qb{border:1px solid var(--gd);padding:.9rem 1.3rem;margin:1rem 0;text-align:center;background:rgba(139,105,20,.03);}.qb p{font-family:'Playfair Display',serif;font-size:.9rem;font-style:italic;color:var(--gold);line-height:1.8;white-space:pre-wrap;}.fl{font-size:.65rem;letter-spacing:.12em;color:var(--td);margin-top:.8rem;font-style:italic;text-align:center;}.af{font-size:.58rem;letter-spacing:.18em;color:var(--td);text-transform:uppercase;text-align:center;margin-top:.5rem;}.af a{color:var(--gd);text-decoration:none;}.spw{text-align:center;padding:.9rem;display:none;}.spw.show{display:block;}.sp{width:24px;height:24px;border:1px solid var(--lb);border-top-color:var(--gold);border-radius:50%;animation:spin .9s linear infinite;margin:0 auto .5rem;}@keyframes spin{to{transform:rotate(360deg)}}.st{font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--td);}</style></head><body><header><div class="ey">ALNAÉ Infinity</div><h1 class="ct">Confidente</h1><p class="tg">Le bijou qui porte votre voix</p></header><div class="cnt"><div class="page active" id="p-code"><div class="card"><h2 class="ct2">Découvrez votre message</h2><p class="cs">Un message vous a été laissé</p><div class="it"><span>◈</span><span>Scannez le QR code sur votre carte ou saisissez le code du bijou ci-dessous. Vous aurez ensuite besoin de votre <strong>code confidentiel</strong>.</span></div><div class="al ae" id="e-code"></div><div class="f"><label>Code confidentiel</label><input type="text" id="ci" placeholder="ex. CL-PWFNBRBH" autocomplete="off" style="text-transform:uppercase;"><div style="font-size:.65rem;color:#8A7A60;margin-top:.4rem;line-height:1.5;">Ce code vous a été transmis avec votre bijou.</div></div><button class="btn" id="bc">Continuer →</button></div></div><div class="page" id="p-pin"><div class="card"><h2 class="ct2">Votre code confidentiel</h2><p class="cs">Saisissez votre code unique pour révéler le message</p><div class="it"><span>◈</span><span>Entrez le code confidentiel communiqué avec votre bijou. C'est le même code qui a permis de créer ce message.</span></div><div class="al ae" id="e-pin"></div><div class="f"><label>Code confidentiel</label><input type="text" id="reveal-code-input" placeholder="ex. CL-PWFNBRBH" autocomplete="off" style="width:100%;padding:.8rem 1rem;border:1px solid var(--lb);background:rgba(255,252,248,.9);font-family:monospace;font-size:1rem;letter-spacing:.1em;text-align:center;text-transform:uppercase;color:var(--dark);outline:none;" oninput="this.value=this.value.replace(/\s/g,'').toUpperCase()"><div style="font-size:.65rem;color:#8A7A60;margin-top:.4rem;line-height:1.5;">Ce code vous a été transmis avec votre bijou.</div></div><button class="btn btn-g" id="br">✦ Révéler mon message →</button></div></div><div class="page" id="p-rev"><div class="card" style="text-align:center;"><span class="ji">◆</span><div id="ow" style="display:none;"><div class="ob" id="ro"></div></div><p class="rn" id="rn"></p><div class="ds"><span></span></div><div class="spw" id="rl"><div class="sp"></div><div class="st">Chargement…</div></div><div class="eb" id="re" style="display:none;"><div class="el">Essence du prénom</div><p id="ret"></p></div><div class="mb" id="rm" style="display:none;"><p id="rmt"></p></div><div class="qb" id="rq" style="display:none;"><p id="rqt"></p></div><p class="fl" id="rf"></p><div class="ds"><span></span></div><div class="af">ALNAÉ Infinity — Collection Confidente<br><a href="https://www.alnaeinfinity.com">www.alnaeinfinity.com</a></div><button class="btn btn-g" id="bdl" style="margin-top:1.3rem;">⬇ Télécharger mon message (PDF)</button></div></div></div><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script><script>const g=id=>document.getElementById(id);function sP(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));g(id)?.classList.add('active');window.scrollTo({top:0,behavior:'smooth'});}function sT(id,v){const e=g(id);if(e)e.textContent=v??'';}function sE(id,m){const e=g(id);if(e){e.textContent=m;e.classList.add('show');}}function hE(id){g(id)?.classList.remove('show');}['c1','c2','c3','c4'].forEach((id,i,a)=>{const el=g(id);if(!el)return;el.addEventListener('input',function(){this.value=this.value.replace(/[^0-9]/g,'');if(this.value&&i<a.length-1)g(a[i+1])?.focus();});el.addEventListener('keydown',function(e){if(e.key==='Backspace'&&!this.value&&i>0)g(a[i-1])?.focus();});});let cc='';const p=new URLSearchParams(window.location.search),cp=p.get('code');if(cp)g('ci').value=cp.toUpperCase();g('bc')?.addEventListener('click',async function(){const code=(g('ci').value||'').trim().toUpperCase();if(!code){sE('e-code','Veuillez saisir le code du bijou.');return;}hE('e-code');this.disabled=true;this.textContent='VÉRIFICATION…';try{const r=await fetch('/start-reveal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jewelCode:code})});const d=await r.json();if(!r.ok)throw new Error(d.message||'Code introuvable.');cc=d.jewelCode;sP('p-pin');g('c1')?.focus();}catch(err){sE('e-code',err.message||'Code introuvable.');}finally{this.disabled=false;this.textContent='CONTINUER →';}});g('br')?.addEventListener('click',async function(){const pin=(g('reveal-code-input')?.value||'').trim().toUpperCase();if(!pin){sE('e-pin','Veuillez saisir votre code confidentiel.');return;}hE('e-pin');g('rl').classList.add('show');this.disabled=true;this.textContent='OUVERTURE…';try{const r=await fetch('/reveal-message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jewelCode:cc,pin})});const d=await r.json();if(!r.ok)throw new Error(d.message||'Code incorrect.');rD=d;sT('rn',d.recipientName||'');if(d.occasion){sT('ro',d.occasion);g('ow').style.display='block';}else g('ow').style.display='none';if(d.etymologyText){sT('ret',d.etymologyText);g('re').style.display='block';}else g('re').style.display='none';if(d.personalMessage){sT('rmt',d.personalMessage);g('rm').style.display='block';}else g('rm').style.display='none';if(d.motivationText){sT('rqt',d.motivationText);g('rq').style.display='block';}else g('rq').style.display='none';sT('rf',d.senderLine||'— ALNAÉ Confidente');g('rl').classList.remove('show');sP('p-rev');}catch(err){g('rl').classList.remove('show');sE('e-pin',err.message||'Code incorrect.');}finally{this.disabled=false;this.textContent='RÉVÉLER MON MESSAGE →';}});let rD=null;g('bdl')?.addEventListener('click',()=>{if(!rD||typeof window.jspdf==='undefined'){alert('PDF non disponible.');return;}const{jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});const esc=s=>(s||'').replace(/[^\x20-\x7E\u00C0-\u024F]/g,' ');const y={v:30};const nl=(g=8)=>{y.v+=g;};doc.setFillColor(28,20,8);doc.rect(0,0,210,20,'F');doc.setFontSize(8);doc.setTextColor(139,105,20);doc.setFont('helvetica','normal');doc.text('ALNAÉ INFINITY — COLLECTION CONFIDENTE',105,12,{align:'center',charSpace:2});doc.setFontSize(22);doc.setTextColor(28,20,8);doc.setFont('times','italic');doc.text(esc(rD.recipientName||''),105,y.v,{align:'center'});nl(10);doc.setDrawColor(139,105,20);doc.setLineWidth(0.3);doc.line(40,y.v,170,y.v);nl(8);if(rD.occasion){doc.setFontSize(9);doc.setTextColor(139,105,20);doc.setFont('helvetica','normal');doc.text((rD.occasion||'').toUpperCase(),105,y.v,{align:'center',charSpace:3});nl(10);}if(rD.etymologyText){doc.setFontSize(8);doc.setTextColor(107,80,16);doc.text('ESSENCE DU PRÉNOM',20,y.v,{charSpace:2});nl(6);doc.setFontSize(10);doc.setTextColor(58,44,24);doc.setFont('times','italic');const el=doc.splitTextToSize(esc(rD.etymologyText),160);doc.text(el,25,y.v);nl(el.length*5+8);}if(rD.personalMessage){doc.setFillColor(232,226,212);doc.rect(20,y.v-4,170,4,'F');doc.setFontSize(12);doc.setTextColor(28,20,8);doc.setFont('times','italic');const ml=doc.splitTextToSize(esc(rD.personalMessage),160);doc.text(ml,25,y.v+4);nl(ml.length*6+12);}if(rD.motivationText){doc.setFillColor(28,20,8);const ql=doc.splitTextToSize(esc(rD.motivationText),150);const qh=ql.length*5+12;doc.rect(20,y.v-4,170,qh,'F');doc.setFontSize(10);doc.setTextColor(240,235,224);doc.setFont('times','italic');doc.text(ql,105,y.v+4,{align:'center'});nl(qh+6);}if(rD.senderLine){doc.setFontSize(9);doc.setTextColor(138,122,96);doc.setFont('times','italic');doc.text(esc(rD.senderLine),170,y.v,{align:'right'});nl(16);}doc.setDrawColor(200,186,160);doc.setLineWidth(0.3);doc.line(20,y.v,190,y.v);nl(8);doc.setFontSize(7);doc.setTextColor(138,122,96);doc.setFont('helvetica','normal');doc.text('ALNAÉ INFINITY  ◆  COLLECTION CONFIDENTE  ◆  WWW.ALNAEINFINITY.COM',105,y.v,{align:'center',charSpace:1});doc.save('message-alnae-confidente.pdf');});</script></body></html>`);
+  res.send(`<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ALNAÉ Confidente — Découvrez votre message</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400&family=Raleway:wght@300;400&display=swap" rel="stylesheet">
+<style>
+:root{--lin:#F2EDE3;--lb:#C8BAA0;--gold:#8B6914;--gd:#6B5010;--dark:#1C1408;--d2:#3A2C18;--tm:#5A4A2A;--td:#8A7A60;--err:#C0392B;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--lin);color:var(--dark);font-family:'Raleway',sans-serif;font-weight:300;min-height:100vh;-webkit-font-smoothing:antialiased;}
+header{text-align:center;padding:2.5rem 2rem 1.5rem;}
+.ey{font-size:.58rem;letter-spacing:.45em;text-transform:uppercase;color:var(--gold);margin-bottom:.7rem;display:flex;align-items:center;justify-content:center;gap:.8rem;}
+.ey::before,.ey::after{content:'';width:30px;height:1px;background:var(--gd);}
+.ct{font-family:'Playfair Display',serif;font-size:3rem;font-weight:400;font-style:italic;color:var(--dark);}
+.tg{font-size:.62rem;letter-spacing:.3em;text-transform:uppercase;color:var(--tm);margin-top:.3rem;}
+.cnt{max-width:520px;margin:0 auto;padding:0 1.2rem 5rem;}
+.page{display:none;animation:fu .4s ease both;}.page.active{display:block;}
+@keyframes fu{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.card{background:rgba(255,252,248,.9);border:1px solid var(--lb);padding:2rem 1.8rem;position:relative;overflow:hidden;margin-bottom:.8rem;}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+.ct2{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:400;color:var(--dark);margin-bottom:.2rem;}
+.cs{font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--td);margin-bottom:1.4rem;}
+.f{margin-bottom:1rem;}.f label{display:block;font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--tm);margin-bottom:.45rem;}
+.f input{width:100%;padding:.8rem 1rem;border:1px solid var(--lb);background:rgba(255,252,248,.9);font-family:monospace;font-size:1rem;letter-spacing:.1em;text-align:center;text-transform:uppercase;color:var(--dark);outline:none;transition:border-color .2s;}
+.f input:focus{border-color:var(--gd);}
+.fh{font-size:.65rem;color:var(--td);margin-top:.4rem;line-height:1.5;}
+.btn{display:block;width:100%;padding:.9rem;background:var(--dark);color:var(--lin);border:none;font-family:'Raleway',sans-serif;font-size:.6rem;font-weight:500;letter-spacing:.3em;text-transform:uppercase;cursor:pointer;transition:background .3s;margin-top:.8rem;}
+.btn:hover{background:#2A2010;}.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-g{background:var(--gold);}.btn-g:hover{background:#A07820;}
+.al{padding:.75rem 1rem;font-size:.72rem;line-height:1.5;margin-bottom:.9rem;display:none;border-left:2px solid;}
+.al.show{display:block;}.ae{background:rgba(192,57,43,.06);border-color:var(--err);color:var(--err);}
+.it{display:flex;gap:.6rem;align-items:flex-start;font-size:.68rem;color:var(--tm);background:rgba(139,105,20,.04);border:1px solid rgba(139,105,20,.12);padding:.65rem .9rem;margin-bottom:1rem;}
+.ji{font-size:2.4rem;display:block;text-align:center;margin-bottom:.9rem;animation:pulse 4s ease-in-out infinite;}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+.ob{display:inline-block;padding:.25rem .9rem;border:1px solid var(--gd);font-size:.58rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);margin-bottom:1.1rem;}
+.rn{font-family:'Playfair Display',serif;font-size:2rem;font-weight:400;font-style:italic;color:var(--dark);text-align:center;margin-bottom:.2rem;}
+.ds{display:flex;align-items:center;justify-content:center;gap:.7rem;padding:1rem 0;}
+.ds::before,.ds::after{content:'';width:60px;height:1px;background:var(--lb);}
+.ds span{width:4px;height:4px;background:var(--gold);transform:rotate(45deg);display:block;}
+.eb{border-left:1px solid var(--gd);padding:.8rem 1rem;margin:1rem 0;text-align:left;background:rgba(139,105,20,.03);}
+.el{font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gd);margin-bottom:.3rem;}
+.eb p{font-family:'Playfair Display',serif;font-size:.95rem;font-style:italic;color:var(--d2);line-height:1.8;white-space:pre-wrap;}
+.mb{background:#E8E2D4;border:1px solid var(--lb);padding:1.4rem;margin:1rem 0;text-align:left;}
+.mb p{font-family:'Playfair Display',serif;font-size:1.05rem;line-height:1.9;color:var(--dark);white-space:pre-wrap;}
+.qb{border:1px solid var(--gd);padding:.9rem 1.3rem;margin:1rem 0;text-align:center;background:rgba(139,105,20,.03);}
+.qb p{font-family:'Playfair Display',serif;font-size:.9rem;font-style:italic;color:var(--gold);line-height:1.8;white-space:pre-wrap;}
+.fl{font-size:.65rem;letter-spacing:.12em;color:var(--td);margin-top:.8rem;font-style:italic;text-align:center;}
+.af{font-size:.58rem;letter-spacing:.18em;color:var(--td);text-transform:uppercase;text-align:center;margin-top:.5rem;}
+.af a{color:var(--gd);text-decoration:none;}
+.spw{text-align:center;padding:.9rem;display:none;}.spw.show{display:block;}
+.sp{width:24px;height:24px;border:1px solid var(--lb);border-top-color:var(--gold);border-radius:50%;animation:spin .9s linear infinite;margin:0 auto .5rem;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.st{font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--td);}
+</style></head>
+<body>
+<header>
+  <div class="ey">ALNAÉ Infinity</div>
+  <h1 class="ct">Confidente</h1>
+  <p class="tg">Le bijou qui porte votre voix</p>
+</header>
+<div class="cnt">
+  <div class="page active" id="p-code">
+    <div class="card">
+      <h2 class="ct2">Découvrez votre message</h2>
+      <p class="cs">Un message vous a été laissé</p>
+      <div class="it"><span>◈</span><span>Saisissez le code confidentiel communiqué avec votre bijou pour révéler le message.</span></div>
+      <div class="al ae" id="e-code"></div>
+      <div class="f">
+        <label>Code confidentiel</label>
+        <input type="text" id="ci" placeholder="ex. CL-PWFNBRBH" autocomplete="off" oninput="this.value=this.value.replace(/\\s/g,'').toUpperCase()">
+        <div class="fh">Ce code vous a été transmis avec votre bijou.</div>
+      </div>
+      <button class="btn" id="bc">Continuer →</button>
+    </div>
+  </div>
+  <div class="page" id="p-rev">
+    <div class="card" style="text-align:center;">
+      <span class="ji">◆</span>
+      <div id="ow" style="display:none;"><div class="ob" id="ro"></div></div>
+      <p class="rn" id="rn"></p>
+      <div class="ds"><span></span></div>
+      <div class="spw" id="rl"><div class="sp"></div><div class="st">Chargement…</div></div>
+      <div class="eb" id="re" style="display:none;"><div class="el">Essence du prénom</div><p id="ret"></p></div>
+      <div class="mb" id="rm" style="display:none;"><p id="rmt"></p></div>
+      <div class="qb" id="rq" style="display:none;"><p id="rqt"></p></div>
+      <p class="fl" id="rf"></p>
+      <div class="ds"><span></span></div>
+      <div class="af">ALNAÉ Infinity — Collection Confidente<br><a href="https://www.alnaeinfinity.com">www.alnaeinfinity.com</a></div>
+    </div>
+  </div>
+</div>
+<script>
+const g=id=>document.getElementById(id);
+function sP(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));g(id)?.classList.add('active');window.scrollTo({top:0,behavior:'smooth'});}
+function sT(id,v){const e=g(id);if(e)e.textContent=v??'';}
+function sE(id,m){const e=g(id);if(e){e.textContent=m;e.classList.add('show');}}
+function hE(id){g(id)?.classList.remove('show');}
+const params=new URLSearchParams(window.location.search);
+const cp=params.get('code');
+if(cp)g('ci').value=cp.replace(/\\s/g,'').toUpperCase();
+g('bc')?.addEventListener('click',async function(){
+  const code=(g('ci').value||'').replace(/\\s/g,'').toUpperCase();
+  if(!code){sE('e-code','Veuillez saisir votre code confidentiel.');return;}
+  hE('e-code');this.disabled=true;this.textContent='VÉRIFICATION…';
+  g('rl').classList.add('show');
+  try{
+    const r=await fetch('/reveal-message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jewelCode:code,pin:code})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.message||'Code incorrect.');
+    sT('rn',d.recipientName||'');
+    if(d.occasion){sT('ro',d.occasion);g('ow').style.display='block';}else g('ow').style.display='none';
+    if(d.etymologyText){sT('ret',d.etymologyText);g('re').style.display='block';}else g('re').style.display='none';
+    if(d.personalMessage){sT('rmt',d.personalMessage);g('rm').style.display='block';}else g('rm').style.display='none';
+    if(d.motivationText){sT('rqt',d.motivationText);g('rq').style.display='block';}else g('rq').style.display='none';
+    sT('rf',d.senderLine||'— ALNAÉ Confidente');
+    g('rl').classList.remove('show');
+    sP('p-rev');
+  }catch(err){g('rl').classList.remove('show');sE('e-code',err.message||'Code incorrect.');}
+  finally{this.disabled=false;this.textContent='CONTINUER →';}
+});
+</script>
+</body></html>`);
 });
 
-// ── ADMIN : CRÉER UNE COMMANDE ────────────────────────────────────
-app.post("/admin/create-order", (req, res) => {
-  if (!checkAdmin(req, res)) return;
-  const { orderNumber, clientEmail, clientName, codes: clientCodes, messageAccompagnement } = req.body;
-  if (!orderNumber || !clientEmail || !clientCodes?.length) return res.status(400).json({ message: "Données manquantes." });
-  if (orders.has(orderNumber)) return res.status(409).json({ message: "Cette commande existe déjà." });
-  const orderData = { orderNumber, clientEmail, clientName:clientName||"", codes:clientCodes.map((code,i)=>({code,index:i+1,status:"available",jewelCode:null,sealedAt:null})), messageAccompagnement:messageAccompagnement||"", createdAt:new Date().toISOString() };
-  orders.set(orderNumber, orderData);
-  clientCodes.forEach((code,i) => codes.set(code, {orderNumber,index:i+1,status:"available",jewelCode:null,sealedAt:null}));
-  console.log("[ADMIN] Commande créée :", orderNumber, "Codes :", clientCodes.length);
-  return res.json({ ok:true, orderNumber, codesCreated:clientCodes.length });
-});
-
-// ── ADMIN : LISTE COMMANDES ───────────────────────────────────────
-app.get("/admin/orders", (req, res) => {
-  if (req.query.secret !== ADMIN_SECRET) return res.status(401).json({ message: "Accès non autorisé." });
-  const ordersList = [...orders.values()].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-  return res.json({ orders: ordersList });
-});
-
-// ── ADMIN : STATS ─────────────────────────────────────────────────
-app.get("/admin/stats", (req, res) => {
-  if (req.query.secret !== ADMIN_SECRET) return res.status(401).json({ message: "Accès non autorisé." });
-  let total=0,sealed=0;
-  orders.forEach(o=>(o.codes||[]).forEach(c=>{total++;if(c.status==="sealed")sealed++;}));
-  return res.json({ totalOrders:orders.size, totalCodes:total, totalSealed:sealed, totalPending:total-sealed, recentOrders:[...orders.values()].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).slice(0,5) });
-});
-
-// ── CLIENT : VALIDER CODE ─────────────────────────────────────────
-app.post("/validate-client-code", (req, res) => {
-  const { clientCode } = req.body;
-  if (!clientCode) return res.status(400).json({ message: "Code manquant." });
-  const normalized = clientCode.replace(/\s/g,'').toUpperCase();
-  const codeData = codes.get(normalized);
-  if (!codeData) return res.status(404).json({ message: "Code incorrect. Vérifiez votre code confidentiel et réessayez." });
-  if (codeData.status === "sealed") return res.status(410).json({ message: "Ce code a déjà été utilisé pour créer un message. Utilisez-le pour lire le message." });
-  const order = orders.get(codeData.orderNumber);
-  return res.json({ valid:true, orderNumber:codeData.orderNumber, codeIndex:codeData.index, clientName:order?.clientName||"" });
-});
-
-// ── CLIENT : SCELLER ─────────────────────────────────────────────
-app.post("/seal-message", async (req, res) => {
-  const { clientCode, pin, jewelCode, recipientName, occasion, personalMessage, etymologyText, motivationText, senderLine } = req.body;
-  if (!pin || !jewelCode) return res.status(400).json({ message: "Données manquantes." });
-  const finalCode = jewelCode.toUpperCase();
-  if (clientCode) {
-    const cd = codes.get(clientCode.replace(/\s/g,'').toUpperCase());
-    if (cd) {
-      cd.status="sealed"; cd.jewelCode=finalCode; cd.sealedAt=new Date().toISOString();
-      const order=orders.get(cd.orderNumber);
-      if (order) { const ce=order.codes.find(c=>c.code===clientCode.toUpperCase()); if(ce){ce.status="sealed";ce.jewelCode=finalCode;ce.sealedAt=cd.sealedAt;} }
-    }
-  }
-  const msgData = { jewelCode:finalCode, clientCode:clientCode?clientCode.toUpperCase():null, pin, recipientName:recipientName||"", occasion:occasion||null, personalMessage:personalMessage||null, etymologyText:etymologyText||null, motivationText:motivationText||null, senderLine:senderLine||"— ALNAÉ Confidente", createdAt:new Date().toISOString() };
-  messages.set(finalCode, msgData);
-  let orderNumber="—";
-  if (clientCode) { const cd=codes.get(clientCode.toUpperCase()); if(cd)orderNumber=cd.orderNumber; }
-  const emailHtml = buildGravureEmail(msgData, orderNumber, clientCode);
-  const sent = await sendEmail(ALNAE_EMAIL, `[ALNAÉ Confidente] ✦ Message prêt à graver — ${orderNumber} — ${recipientName}`, emailHtml);
-  console.log("[SEAL]", finalCode, "— Email ALNAÉ:", sent?"✓":"⚠ (SendGrid non configuré)");
-  return res.json({ ok:true, jewelCode:finalCode, revealUrl:BASE_URL+"/?code="+finalCode });
-});
-
-// ── RÉVÉLATION ────────────────────────────────────────────────────
-app.post("/start-reveal", (req, res) => {
-  const { jewelCode } = req.body;
-  if (!jewelCode) return res.status(400).json({ message: "Code manquant." });
-  const code = jewelCode.toUpperCase();
-  if (!messages.has(code)) return res.status(404).json({ message: "Code introuvable. Vérifiez la carte jointe au bijou." });
-  return res.json({ jewelCode: code });
-});
-
-app.post("/reveal-message", (req, res) => {
-  const { jewelCode, pin } = req.body;
-  if (!jewelCode || !pin) return res.status(400).json({ message: "Données manquantes." });
-  const code = jewelCode.toUpperCase();
-  const msg  = messages.get(code);
-  if (!msg) return res.status(404).json({ message: "Message introuvable." });
-  if (msg.pin !== String(pin)) return res.status(401).json({ message: "Code incorrect. Vérifiez le code confidentiel communiqué avec votre bijou." });
-  return res.json({ recipientName:msg.recipientName, occasion:msg.occasion, etymologyText:msg.etymologyText, personalMessage:msg.personalMessage, motivationText:msg.motivationText, senderLine:msg.senderLine });
-});
-
-app.get("/health", (req, res) => res.json({ ok:true, orders:orders.size, codes:codes.size, messages:messages.size, uptime:Math.floor(process.uptime())+"s" }));
-
-app.get("/formulaire", (req, res) => {
-  res.sendFile(path.join(__dirname, "alnae-formulaire-client.html"));
-});
-
+// ── DÉMARRAGE ─────────────────────────────────────────────────────
 app.listen(port, () => {
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("  ALNAÉ Confidente v2 — Serveur démarré");
-  console.log("  Port :", port, "| URL :", BASE_URL);
-  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("  ALNAÉ Confidente v3");
+  console.log("  Port     :", port);
+  console.log("  URL      :", BASE_URL);
+  console.log("  Resend   :", RESEND_API_KEY ? "✓ configuré" : "⚠ manquant (emails désactivés)");
+  console.log("  Anthropic:", ANTHROPIC_KEY  ? "✓ configuré" : "⚠ manquant (IA désactivée)");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 });
