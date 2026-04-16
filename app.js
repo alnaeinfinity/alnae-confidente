@@ -1,12 +1,3 @@
-// ═══════════════════════════════════════════════════════════════════
-//  ALNAÉ Confidente — Serveur Render v3
-//  Nouveautés v3 :
-//  - Envoi email réel via Resend (commande@alnaeinfinity.com)
-//  - IA étymologie + citation déplacées côté serveur
-//  - Notification admin automatique à chaque scellement
-//  - Usage unique renforcé
-// ═══════════════════════════════════════════════════════════════════
-
 const express = require("express");
 const https   = require("https");
 const http    = require("http");
@@ -609,6 +600,12 @@ app.get("/health", (req, res) => {
     anthropic: !!ANTHROPIC_KEY,
     uptime: Math.floor(process.uptime()) + "s"
   });
+});
+
+// ── FORMULAIRE CLIENT ────────────────────────────────────────────
+// Sert le fichier alnae-formulaire-client.html depuis le même dossier que app.js
+app.get("/formulaire", (req, res) => {
+  res.sendFile(path.join(__dirname, "alnae-formulaire-client.html"));
 });
 
 // ── PAGE RÉVÉLATION ───────────────────────────────────────────────
