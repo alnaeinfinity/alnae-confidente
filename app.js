@@ -18,7 +18,7 @@ const port    = process.env.PORT || 10000;
 const BASE_URL        = process.env.BASE_URL        || "https://alnae-confidente-1.onrender.com";
 const ADMIN_SECRET    = process.env.ADMIN_SECRET    || "ALNAE-ADMIN-2026";
 const RESEND_API_KEY  = process.env.RESEND_API_KEY  || "";   // Obligatoire pour l'envoi email
-const ANTHROPIC_KEY   = process.env.ANTHROPIC_KEY   || "";   // Obligatoire pour l'IA
+const OPENAI_API_KEY  = process.env.OPENAI_API_KEY  || "";   // Obligatoire pour l'IA
 const FROM_EMAIL      = "commande@alnaeinfinity.com";
 const ADMIN_EMAIL     = "commande@alnaeinfinity.com";
 const CONTACT_EMAIL   = "contact@alnaeinfinity.com";
@@ -97,28 +97,35 @@ function sendEmailResend(to, subject, html, replyTo) {
 }
 
 // ── IA CÔTÉ SERVEUR ───────────────────────────────────────────────
-function callAnthropic(systemPrompt, userMessage, maxTokens) {
-  if (!ANTHROPIC_KEY) {
+function callOpenAI(systemPrompt, userMessage, maxTokens) {
+  if (!OPENAI_API_KEY) {
     return Promise.resolve(null);
   }
 
   return new Promise((resolve) => {
     const body = JSON.stringify({
-      model:      "claude-sonnet-4-20250514",
-      max_tokens: maxTokens || 400,
-      system:     systemPrompt,
-      messages:   [{ role: "user", content: userMessage }]
+      model: "gpt-4o-mini",
+      input: [
+        {
+          role: "system",
+          content: [{ type: "input_text", text: systemPrompt }]
+        },
+        {
+          role: "user",
+          content: [{ type: "input_text", text: userMessage }]
+        }
+      ],
+      max_output_tokens: maxTokens || 400
     });
 
     const opts = {
-      hostname: "api.anthropic.com",
-      path:     "/v1/messages",
-      method:   "POST",
+      hostname: "api.openai.com",
+      path: "/v1/responses",
+      method: "POST",
       headers: {
-        "x-api-key":         ANTHROPIC_KEY,
-        "anthropic-version": "2023-06-01",
-        "Content-Type":      "application/json",
-        "Content-Length":    Buffer.byteLength(body)
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(body)
       }
     };
 
@@ -128,17 +135,41 @@ function callAnthropic(systemPrompt, userMessage, maxTokens) {
       r.on("end", () => {
         try {
           const parsed = JSON.parse(data);
-          const text = parsed.content?.[0]?.text;
+
+          let text = null;
+
+          if (typeof parsed.output_text === "string" && parsed.output_text.trim()) {
+            text = parsed.output_text.trim();
+          } else if (Array.isArray(parsed.output)) {
+            const chunks = [];
+            for (const item of parsed.output) {
+              if (!Array.isArray(item.content)) continue;
+              for (const c of item.content) {
+                if (c.type === "output_text" && c.text) {
+                  chunks.push(c.text);
+                }
+              }
+            }
+            if (chunks.length) text = chunks.join("\n").trim();
+          }
+
           resolve(text ? text.replace(/\*([^*]+)\*/g, "$1").trim() : null);
-        } catch(e) { resolve(null); }
+        } catch (e) {
+          console.error("[OPENAI] Réponse invalide :", data);
+          resolve(null);
+        }
       });
     });
-    req.on("error", () => resolve(null));
+
+    req.on("error", (e) => {
+      console.error("[OPENAI] Erreur réseau :", e.message);
+      resolve(null);
+    });
+
     req.write(body);
     req.end();
   });
 }
-
 // Détection genre simple côté serveur
 function detectGenre(prenom) {
   if (!prenom) return "neutre";
@@ -205,7 +236,7 @@ Structure : 3 courts paragraphes séparés par une ligne vide.
 Ton : poétique, intime, précis. Pas de liste, pas de tiret, pas de guillemets, pas de markdown.
 Ce texte sera gravé sur une carte qui accompagne un bijou. Chaque mot compte.`;
 
-  const result = await callAnthropic(systemPrompt, `Prénom : ${prenom}. Genre : ${gLabel}. Écris l'essence de ce prénom.`, 400);
+  const result = await callOpenAI(systemPrompt, `Prénom : ${prenom}. Genre : ${gLabel}. Écris l'essence de ce prénom.`, 400);
 
   return res.json({
     etymologyText: result || fallbackEtym(prenom, genre),
@@ -232,7 +263,7 @@ Elle se termine TOUJOURS par cette phrase signature : « N'oublie pas qui tu es.
 Ton : entre Rilke et une lettre d'amour. Poétique, puissant, intime.
 Pas de guillemets dans le texte. Pas de tiret. Pas de markdown.`;
 
-  const result = await callAnthropic(
+  const result = await callOpenAI(
     systemPrompt,
     `Prénom du destinataire : ${prenom}. ${ctx.join(". ") || "Bijou offert avec amour."}`,
     150
@@ -261,7 +292,7 @@ Tutoiement. Jamais banal ni générique.
 Réponds UNIQUEMENT en JSON valide sans markdown.
 Format exact : {"suggestions":["message1","message2","message3"]}`;
 
-  const result = await callAnthropic(
+  const result = await callOpenAI(
     systemPrompt,
     `Occasion : ${occasion}. Prénom : ${prenom || "le destinataire"} (genre : ${gLabel}).`,
     600
@@ -618,7 +649,7 @@ app.get("/health", (req, res) => {
     ok: true, version: "v3",
     orders: orders.size, codes: codes.size, messages: messages.size,
     resend: !!RESEND_API_KEY,
-    anthropic: !!ANTHROPIC_KEY,
+    openai: !!OPENAI_API_KEY,
     uptime: Math.floor(process.uptime()) + "s"
   });
 });
@@ -761,6 +792,6 @@ app.listen(port, () => {
   console.log("  Port     :", port);
   console.log("  URL      :", BASE_URL);
   console.log("  Resend   :", RESEND_API_KEY ? "✓ configuré" : "⚠ manquant (emails désactivés)");
-  console.log("  Anthropic:", ANTHROPIC_KEY  ? "✓ configuré" : "⚠ manquant (IA désactivée)");
+  console.log("  OpenAI   :", OPENAI_API_KEY ? "✓ configuré" : "⚠ manquant (IA désactivée)");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 });
