@@ -337,15 +337,12 @@ body::before{content:'';position:fixed;top:-30vh;left:50%;transform:translateX(-
           </div>
 
           <div style="display:flex;gap:.7rem;flex-wrap:wrap;margin-top:1rem;">
-            <button class="btn btn-primary btn-sm btn-icon" id="btn-open-mailto" type="button">📧 Ouvrir dans Gmail / Mail</button>
-            <button class="btn btn-sm btn-icon" id="btn-copy-email" type="button">📋 Copier le contenu</button>
+            <button class="btn btn-primary btn-sm btn-icon" id="btn-send-email" type="button">📧 Envoyer l'email au client</button>
           </div>
 
-          <div class="alert alert-success" id="copy-success" style="margin-top:.8rem;">✓ Contenu copié dans le presse-papier !</div>
-
-          <div style="margin-top:1rem;padding:.8rem;background:rgba(139,105,20,.04);border:1px solid rgba(139,105,20,.15);font-size:.68rem;color:var(--text-m);line-height:1.6;">
-            <strong style="color:var(--dark);">Note :</strong> Le bouton "Ouvrir dans Gmail" ouvre votre application email avec tout le contenu pré-rempli. Il vous reste juste à cliquer "Envoyer". Si ça ne fonctionne pas, utilisez "Copier le contenu" et collez-le dans votre email.
-          </div>
+          <div class="alert alert-success" id="email-sent-success" style="margin-top:.8rem;display:none;">✓ Email envoyé avec succès !</div>
+          <div class="alert alert-error"   id="email-sent-error"   style="margin-top:.8rem;display:none;"></div>
+          <div class="alert alert-success" id="copy-success"       style="margin-top:.8rem;display:none;">✓ Contenu copié dans le presse-papier !</div>
         </div>
 
         <div style="display:flex;gap:.7rem;margin-top:.5rem;">
@@ -416,7 +413,7 @@ body::before{content:'';position:fixed;top:-30vh;left:50%;transform:translateX(-
 // ── CONFIG ────────────────────────────────────────────────────────
 const ACCESS_CODE  = 'Confident6L';
 const RENDER_URL   = 'https://alnae-confidente-1.onrender.com';
-const FORM_URL     = 'https://alnae-confidente-1.onrender.com'; // URL du formulaire client
+const FORM_URL     = 'https://alnae-confidente-1.onrender.com/formulaire'; // URL du formulaire client
 const ADMIN_SECRET = 'ALNAE-ADMIN-2026'; // doit correspondre à la variable Render
 
 // ── UTILITAIRES ───────────────────────────────────────────────────
@@ -633,53 +630,46 @@ function renderCodesResult(orderNumber, clientEmail, clientName, codes, msgAccom
   `;
   setHtml('email-body-preview', bodyHtml);
 
-  // Corps pour mailto (texte brut)
-  const mailtoBody = buildMailtoBody(orderNumber, clientName, codes, formUrl, CONTACT_EMAIL);
-
-  g('btn-open-mailto').onclick = () => {
-    window.location.href = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(mailtoBody)}`;
+  g('btn-send-email').onclick = async () => {
+    const btn = g('btn-send-email');
+    const successEl = g('email-sent-success');
+    const errorEl   = g('email-sent-error');
+    successEl.style.display = 'none';
+    errorEl.style.display   = 'none';
+    btn.disabled = true;
+    btn.textContent = 'ENVOI EN COURS…';
+    try {
+      const resp = await fetch(RENDER_URL + '/admin/send-client-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adminSecret:  ADMIN_SECRET,
+          orderNumber:  orderNumber,
+          clientEmail:  clientEmail,
+          clientName:   clientName || '',
+          codes:        codes.map(c => c.code)
+        })
+      });
+      const data = await resp.json();
+      if (resp.ok && data.ok) {
+        successEl.textContent = '✓ Email envoyé avec succès à ' + clientEmail;
+        successEl.style.display = 'block';
+        btn.textContent = '✓ Email envoyé';
+        btn.style.background = 'var(--ok)';
+      } else {
+        throw new Error(data.message || 'Erreur inconnue.');
+      }
+    } catch (err) {
+      errorEl.textContent = '✗ ' + (err.message || 'Erreur. Vérifiez que la clé RESEND_API_KEY est configurée sur Render.');
+      errorEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = '📧 Envoyer l'email au client';
+    }
   };
 
-  g('btn-copy-email').onclick = () => {
-    const fullText = `Objet : ${subject}\n\n${mailtoBody}`;
-    navigator.clipboard.writeText(fullText).then(()=>{
-      g('copy-success').classList.add('show');
-      setTimeout(()=>g('copy-success').classList.remove('show'),3000);
-    }).catch(()=>prompt('Copier ce texte :', fullText));
-  };
+  
 }
 
-function buildMailtoBody(orderNumber, clientName, codes, formUrl, contactEmail){
-  const codesText = codes.map(c=>`  Code ${c.index} sur ${codes.length} : ${c.code}`).join('\n');
-  const nbBijoux = codes.length > 1 ? `vos ${codes.length} bijoux` : 'votre bijou';
-  return `Bonjour${clientName ? ' ' + clientName : ''},
-
-Nous vous remercions chaleureusement pour votre commande ${orderNumber} auprès d'ALNAÉ Infinity.
-
-Vous avez choisi la collection Confidente — une expérience unique où chaque bijou devient le messager d'une émotion que vous souhaitez transmettre.
-
-Pour personnaliser ${nbBijoux}, nous vous avons préparé ${codes.length > 1 ? codes.length + ' codes personnels exclusifs' : 'un code personnel exclusif'} :
-
-${codesText}
-
-COMMENT CRÉER VOTRE MESSAGE :
-
-1. Rendez-vous sur notre espace dédié : ${formUrl}
-2. Saisissez votre code unique — votre numéro de commande ${orderNumber} sera pré-rempli automatiquement
-3. Composez votre message : texte, photo, audio ou vidéo selon votre envie
-4. Prévisualisez votre message, puis scellez-le lorsqu'il vous convient
-
-IMPORTANT : Chaque code est strictement personnel et valable une seule fois. Une fois votre message scellé, il ne pourra plus être modifié. Nous vous invitons à relire attentivement votre message avant de le valider.
-
-Après réception de votre message, nous le traiterons personnellement sous 24 à 48h ouvrées. Votre bijou vous sera ensuite expédié rapidement par La Poste et vous recevrez un email de confirmation de suivi.
-
-Pour toute question relative à votre commande, n'hésitez pas à nous contacter en indiquant votre numéro ${orderNumber} à l'adresse : ${contactEmail}
-
-Toute l'équipe ALNAÉ Infinity vous souhaite une belle expérience Confidente. ✦
-
-ALNAÉ Infinity — Collection Confidente
-www.alnaeinfinity.com`;
-}
 
 // ── COPIER CODE ──────────────────────────────────────────────────
 window.copyCode = function(code, btn) {
