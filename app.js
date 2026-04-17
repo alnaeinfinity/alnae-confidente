@@ -1,6 +1,16 @@
+// ═══════════════════════════════════════════════════════════════════
+//  ALNAÉ Confidente — Serveur Render v3
+//  Nouveautés v3 :
+//  - Envoi email réel via Resend (commande@alnaeinfinity.com)
+//  - IA étymologie + citation déplacées côté serveur
+//  - Notification admin automatique à chaque scellement
+//  - Usage unique renforcé
+// ═══════════════════════════════════════════════════════════════════
+
 const express = require("express");
 const https   = require("https");
 const http    = require("http");
+const path    = require("path");
 const app     = express();
 const port    = process.env.PORT || 10000;
 
@@ -540,9 +550,20 @@ app.post("/seal-message", async (req, res) => {
       <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8B6914;margin-bottom:8px;">Citation ALNAÉ</div>
       <div style="background:#1C1408;padding:14px 18px;font-family:Georgia,serif;font-style:italic;font-size:13px;color:#F0EBE0;line-height:1.7;white-space:pre-wrap;">${esc(motivationText)}</div>
     </div>` : ""}
-    <div style="margin:24px 0;padding:14px 18px;background:#F0EBE0;border:1px solid #C8BAA0;">
-      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8B6914;margin-bottom:8px;">Lien de révélation</div>
-      <a href="${revealUrl}" style="color:#8B6914;font-size:13px;word-break:break-all;">${revealUrl}</a>
+    <div style="margin:24px 0;padding:16px 18px;background:#F0EBE0;border:1px solid #C8BAA0;">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8B6914;margin-bottom:14px;">QR Code &amp; Lien de révélation</div>
+      <div style="display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;">
+        <div>
+          <img src="https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(revealUrl)}&size=140x140&color=1C1408&bgcolor=F0EBE0&margin=6" alt="QR Code" width="140" height="140" style="display:block;border:1px solid #C8BAA0;">
+          <div style="font-size:9px;color:#8A7A60;text-align:center;margin-top:4px;letter-spacing:1px;">À imprimer sur la carte</div>
+        </div>
+        <div style="flex:1;min-width:180px;">
+          <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#8A7A60;margin-bottom:6px;">Code confidentiel</div>
+          <div style="font-family:monospace;font-size:15px;letter-spacing:3px;color:#1C1408;font-weight:bold;background:white;padding:8px 14px;border:1.5px solid #1C1408;display:inline-block;margin-bottom:14px;">${esc(clientCode||finalCode)}</div>
+          <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#8A7A60;margin-bottom:6px;">Lien direct</div>
+          <a href="${revealUrl}" style="color:#8B6914;font-size:12px;word-break:break-all;display:block;">${revealUrl}</a>
+        </div>
+      </div>
     </div>
   </div>
   <div style="background:#F8F4EE;border-top:1px solid #C8BAA0;padding:14px 36px;text-align:center;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8A7A60;">
