@@ -133,26 +133,21 @@ function callOpenAI(systemPrompt, userMessage, maxTokens) {
   return new Promise((resolve) => {
     const body = JSON.stringify({
       model: "gpt-4o-mini",
-      input: [
-        {
-          role: "system",
-          content: [{ type: "input_text", text: systemPrompt }]
-        },
-        {
-          role: "user",
-          content: [{ type: "input_text", text: userMessage }]
-        }
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user",   content: userMessage  }
       ],
-      max_output_tokens: maxTokens || 400
+      max_tokens:   maxTokens || 400,
+      temperature:  0.85
     });
 
     const opts = {
       hostname: "api.openai.com",
-      path: "/v1/responses",
-      method: "POST",
+      path:     "/v1/chat/completions",
+      method:   "POST",
       headers: {
         "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
+        "Content-Type":  "application/json",
         "Content-Length": Buffer.byteLength(body)
       }
     };
@@ -163,41 +158,30 @@ function callOpenAI(systemPrompt, userMessage, maxTokens) {
       r.on("end", () => {
         try {
           const parsed = JSON.parse(data);
-
-          let text = null;
-
-          if (typeof parsed.output_text === "string" && parsed.output_text.trim()) {
-            text = parsed.output_text.trim();
-          } else if (Array.isArray(parsed.output)) {
-            const chunks = [];
-            for (const item of parsed.output) {
-              if (!Array.isArray(item.content)) continue;
-              for (const c of item.content) {
-                if (c.type === "output_text" && c.text) {
-                  chunks.push(c.text);
-                }
-              }
-            }
-            if (chunks.length) text = chunks.join("\n").trim();
+          // Format standard /v1/chat/completions
+          const text = parsed.choices?.[0]?.message?.content;
+          if (text && text.trim()) {
+            resolve(text.replace(/\*([^*]+)\*/g, "$1").trim());
+          } else {
+            console.error("[OPENAI] Réponse inattendue :", JSON.stringify(parsed).slice(0,200));
+            resolve(null);
           }
-
-          resolve(text ? text.replace(/\*([^*]+)\*/g, "$1").trim() : null);
         } catch (e) {
-          console.error("[OPENAI] Réponse invalide :", data);
+          console.error("[OPENAI] Parse erreur :", data.slice(0,200));
           resolve(null);
         }
       });
     });
-
     req.on("error", (e) => {
       console.error("[OPENAI] Erreur réseau :", e.message);
       resolve(null);
     });
-
     req.write(body);
     req.end();
   });
 }
+
+
 // Détection genre simple côté serveur
 function detectGenre(prenom) {
   if (!prenom) return "neutre";
@@ -695,6 +679,7 @@ app.get("/admin/print-card", (req, res) => {
 <html lang="fr"><head><meta charset="UTF-8">
 <title>Carte ALNAE — ${code}</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400&family=Raleway:wght@300;400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:#f5f5f5;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;font-family:'Raleway',sans-serif;}
@@ -853,6 +838,7 @@ header{text-align:center;padding:2.5rem 2rem 1.5rem;}
       <p class="fl" id="rf"></p>
       <div class="ds"><span></span></div>
       <div class="af">ALNAÉ Infinity — Collection Confidente<br><a href="https://www.alnaeinfinity.com">www.alnaeinfinity.com</a></div>
+      <button class="btn btn-g" id="bdl" style="margin-top:1.2rem;max-width:320px;width:100%;">⬇ Télécharger mon message (PDF)</button>
     </div>
   </div>
 </div>
@@ -865,6 +851,79 @@ function hE(id){g(id)?.classList.remove('show');}
 const params=new URLSearchParams(window.location.search);
 const cp=params.get('code');
 if(cp)g('ci').value=cp.replace(/\\s/g,'').toUpperCase();
+// ── TÉLÉCHARGEMENT PDF DU MESSAGE ────────────────────────────
+let rD=null;
+
+function dlPDF(){
+  if(!rD){return;}
+  if(typeof window.jspdf==='undefined'){alert('PDF non disponible, rechargez la page.');return;}
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:'mm',format:'a4'});
+  const esc=s=>(s||'').replace(/[^\x20-\x7E\u00C0-\u024F\n]/g,' ');
+  const y={v:28};
+  const nl=(g=7)=>{y.v+=g;};
+
+  // En-tête
+  doc.setFillColor(28,20,8);doc.rect(0,0,210,18,'F');
+  doc.setFontSize(7);doc.setTextColor(139,105,20);doc.setFont('helvetica','normal');
+  doc.text('ALNAÉ INFINITY — COLLECTION CONFIDENTE',105,11,{align:'center',charSpace:2});
+
+  // Titre prénom
+  doc.setFontSize(22);doc.setTextColor(28,20,8);doc.setFont('times','italic');
+  doc.text(esc(rD.recipientName||''),105,y.v,{align:'center'});nl(10);
+
+  // Ligne or
+  doc.setDrawColor(139,105,20);doc.setLineWidth(0.3);doc.line(40,y.v,170,y.v);nl(7);
+
+  // Occasion
+  if(rD.occasion){
+    doc.setFontSize(8);doc.setTextColor(139,105,20);doc.setFont('helvetica','normal');
+    doc.text(esc(rD.occasion.toUpperCase()),105,y.v,{align:'center',charSpace:3});nl(9);
+  }
+
+  // Étymologie
+  if(rD.etymologyText){
+    doc.setFontSize(7);doc.setTextColor(107,80,16);doc.setFont('helvetica','normal');
+    doc.text('ESSENCE DU PRÉNOM',20,y.v,{charSpace:2});nl(5);
+    doc.setFontSize(9.5);doc.setTextColor(58,44,24);doc.setFont('times','italic');
+    const el=doc.splitTextToSize(esc(rD.etymologyText),165);
+    doc.text(el,22,y.v);nl(el.length*5+7);
+  }
+
+  // Message personnel
+  if(rD.personalMessage){
+    doc.setFillColor(232,226,212);doc.rect(18,y.v-3,174,2,'F');
+    doc.setFontSize(11);doc.setTextColor(28,20,8);doc.setFont('times','italic');
+    const ml=doc.splitTextToSize(esc(rD.personalMessage),168);
+    doc.text(ml,21,y.v+4);nl(ml.length*6+11);
+  }
+
+  // Citation ALNAÉ
+  if(rD.motivationText){
+    doc.setFillColor(28,20,8);
+    const ql=doc.splitTextToSize(esc(rD.motivationText),155);
+    const qh=ql.length*5.5+10;
+    doc.rect(18,y.v-3,174,qh,'F');
+    doc.setFontSize(9.5);doc.setTextColor(240,235,224);doc.setFont('times','italic');
+    doc.text(ql,105,y.v+4,{align:'center'});nl(qh+5);
+  }
+
+  // Signature
+  if(rD.senderLine){
+    doc.setFontSize(8);doc.setTextColor(138,122,96);doc.setFont('times','italic');
+    doc.text(esc(rD.senderLine),170,y.v,{align:'right'});nl(14);
+  }
+
+  // Pied de page
+  doc.setDrawColor(200,186,160);doc.setLineWidth(0.3);doc.line(18,y.v,192,y.v);nl(7);
+  doc.setFontSize(6.5);doc.setTextColor(138,122,96);doc.setFont('helvetica','normal');
+  doc.text('ALNAÉ INFINITY  ◆  COLLECTION CONFIDENTE  ◆  WWW.ALNAEINFINITY.COM',105,y.v,{align:'center',charSpace:1});
+
+  doc.save('message-alnae-confidente.pdf');
+}
+
+g('bdl')?.addEventListener('click', dlPDF);
+
 g('bc')?.addEventListener('click',async function(){
   const code=(g('ci').value||'').replace(/\\s/g,'').toUpperCase();
   if(!code){sE('e-code','Veuillez saisir votre code confidentiel.');return;}
@@ -874,6 +933,7 @@ g('bc')?.addEventListener('click',async function(){
     const r=await fetch('/reveal-message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jewelCode:code,pin:code})});
     const d=await r.json();
     if(!r.ok)throw new Error(d.message||'Code incorrect.');
+    rD=d;
     sT('rn',d.recipientName||'');
     if(d.occasion){sT('ro',d.occasion);g('ow').style.display='block';}else g('ow').style.display='none';
     if(d.etymologyText){sT('ret',d.etymologyText);g('re').style.display='block';}else g('re').style.display='none';
