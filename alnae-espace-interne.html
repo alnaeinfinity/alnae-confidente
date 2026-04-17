@@ -461,8 +461,7 @@ function doLogin(){
     g('page-dashboard').classList.add('active');
     g('login-code').value='';
     g('login-error').classList.remove('show');
-    loadStats();
-    showVue('accueil');
+    showVue('accueil'); // showVue appelle loadStats — pas besoin de le faire deux fois
   } else {
     g('login-error').classList.add('show');
     g('login-code').value='';
@@ -663,7 +662,7 @@ function renderCodesResult(orderNumber, clientEmail, clientName, codes, msgAccom
       errorEl.textContent = '✗ ' + (err.message || 'Erreur. Vérifiez que la clé RESEND_API_KEY est configurée sur Render.');
       errorEl.style.display = 'block';
       btn.disabled = false;
-      btn.textContent = '📧 Envoyer l'email au client';
+      btn.textContent = '📧 Envoyer l\'email au client';
     }
   };
 
@@ -716,13 +715,16 @@ async function loadHistory(){
 
   // Essayer de charger depuis Render
   try{
-    const resp = await fetch(RENDER_URL+'/admin/orders?secret='+ADMIN_SECRET);
+    const ctrl2 = new AbortController();
+    const timer2 = setTimeout(() => ctrl2.abort(), 6000);
+    const resp = await fetch(RENDER_URL+'/admin/orders?secret='+ADMIN_SECRET, {signal: ctrl2.signal});
+    clearTimeout(timer2);
     if(resp.ok){
       const data = await resp.json();
       orders = data.orders || [];
     }
   }catch(_){
-    // Fallback local
+    // Fallback local (Render en veille ou hors ligne)
     orders = getLocalHistory();
   }
 
@@ -765,7 +767,10 @@ async function loadHistory(){
 // ── STATISTIQUES ──────────────────────────────────────────────────
 async function loadStats(){
   try{
-    const resp = await fetch(RENDER_URL+'/admin/stats?secret='+ADMIN_SECRET);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 6000); // timeout 6s si Render en veille
+    const resp = await fetch(RENDER_URL+'/admin/stats?secret='+ADMIN_SECRET, {signal: ctrl.signal});
+    clearTimeout(timer);
     if(resp.ok){
       const data = await resp.json();
       setText('stat-orders', data.totalOrders||0);
