@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ALNAÉ Confidente — Déposer un message</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&family=Raleway:wght@200;300;400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 :root{
   --lin:#F2EDE3;--lin-mid:#EDE8DC;--lin-soft:#E8E2D4;--lin-border:#C8BAA0;
@@ -101,6 +99,12 @@ header{text-align:center;padding:3rem 2rem 1.5rem;position:relative;z-index:1;}
 .sug-item:last-child{border-bottom:none;}
 .sug-item input[type=checkbox]{width:14px;height:14px;min-width:14px;margin-top:3px;accent-color:var(--gold);cursor:pointer;flex-shrink:0;}
 .sug-item span{font-size:.78rem;font-family:'Playfair Display',serif;font-style:italic;color:var(--dark2);line-height:1.5;}
+.sug-regen-row{display:flex;align-items:center;justify-content:space-between;margin-top:.7rem;padding-top:.6rem;border-top:1px solid var(--lin-border);}
+.sug-regen-btn{font-family:'Raleway',sans-serif;font-size:.6rem;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-d);background:none;border:1px solid var(--gold-d);padding:.35rem .85rem;cursor:pointer;transition:all .2s;}
+.sug-regen-btn:hover:not(:disabled){background:var(--gold-d);color:var(--lin);}
+.sug-regen-btn:disabled{opacity:.35;cursor:not-allowed;}
+.sug-counter{font-size:.6rem;color:var(--text-d);letter-spacing:.1em;}
+.sug-spinner{font-size:.65rem;color:var(--gold);display:none;letter-spacing:.05em;font-style:italic;}
 
 /* RGPD */
 .rgpd-box{background:var(--lin-soft);border:1px solid var(--lin-border);padding:.9rem 1.1rem;margin:.9rem 0;font-size:.7rem;line-height:1.7;color:var(--text-m);}
@@ -132,25 +136,7 @@ header{text-align:center;padding:3rem 2rem 1.5rem;position:relative;z-index:1;}
 
 
 /* MÉDIAS */
-.media-upload-area{border:1px dashed var(--lin-border);padding:1.5rem 1rem;text-align:center;cursor:pointer;transition:all .2s;position:relative;}
-.media-upload-area:hover,.media-upload-area.drag-over{border-color:var(--gold-d);}
-.media-upload-area input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
-.media-upload-icon{font-size:1.4rem;display:block;margin-bottom:.5rem;opacity:.45;}
-.media-upload-label{font-size:.7rem;color:var(--text-m);line-height:1.6;}
-.media-upload-label strong{color:var(--gold);display:block;font-size:.72rem;font-weight:400;letter-spacing:.05em;}
-.media-types{display:flex;gap:.4rem;justify-content:center;flex-wrap:wrap;margin-top:.6rem;}
-.media-type-badge{font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;padding:.2rem .5rem;border:1px solid var(--lin-border);color:var(--text-d);}
-.media-previews{display:flex;flex-direction:column;gap:.5rem;margin-top:.8rem;}
-.media-item{display:flex;align-items:center;gap:.7rem;background:var(--lin-soft);border:1px solid var(--lin-border);padding:.6rem .8rem;}
-.media-item-info{flex:1;min-width:0;}
-.media-item-name{font-size:.72rem;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.media-item-size{font-size:.62rem;color:var(--text-d);margin-top:.1rem;}
-.media-item-remove{background:none;border:none;color:var(--text-d);cursor:pointer;font-size:.9rem;padding:.2rem;flex-shrink:0;}
-.media-item-remove:hover{color:var(--err);}
-.media-item-preview{width:44px;height:44px;object-fit:cover;flex-shrink:0;border:1px solid var(--lin-border);}
-.media-limit-info{font-size:.62rem;color:var(--text-d);text-align:center;margin-top:.5rem;line-height:1.5;}
-.media-error{font-size:.65rem;color:var(--err);margin-top:.3rem;display:none;}
-.media-error.show{display:block;}
+
 
 /* PREVIEW OVERLAY */
 .preview-overlay{display:none;position:fixed;inset:0;background:rgba(28,20,8,.72);z-index:1000;overflow-y:auto;padding:2rem 1rem;backdrop-filter:blur(4px);}
@@ -194,24 +180,6 @@ header{text-align:center;padding:3rem 2rem 1.5rem;position:relative;z-index:1;}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spinner-text{font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-d);}
 
-/* CARTE */
-.carte-wrap{border:1px solid var(--lin-border);margin:1.2rem 0;overflow:hidden;}
-.carte-label{font-size:.58rem;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);padding:.6rem 1rem;background:rgba(139,105,20,.04);border-bottom:1px solid var(--lin-border);}
-.carte-preview{background:white;padding:1rem;display:flex;align-items:center;gap:1rem;}
-.carte-info{flex:1;min-width:140px;}
-.carte-brand-s{font-size:.55rem;letter-spacing:.28em;text-transform:uppercase;color:var(--gold);}
-.carte-title-s{font-family:'Playfair Display',serif;font-size:1rem;font-style:italic;color:var(--dark);margin-bottom:.35rem;}
-.carte-instr{font-size:.65rem;color:var(--text-m);line-height:1.6;margin-bottom:.5rem;}
-.carte-code-lbl{font-size:.55rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-d);margin-bottom:.2rem;}
-.carte-code-val{background:white;color:var(--dark);border:1.5px solid var(--dark);padding:.35rem .7rem;font-family:monospace;font-size:.9rem;letter-spacing:.15em;display:inline-block;font-weight:bold;}
-.carte-footer-s{font-size:.6rem;color:var(--text-d);text-align:center;padding:.5rem;border-top:1px solid var(--lin-soft);}
-
-/* EXPORT BUTTONS */
-.export-btns{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem;}
-.export-btn{flex:1;min-width:90px;padding:.65rem .5rem;font-family:'Raleway',sans-serif;font-size:.58rem;font-weight:500;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;border:1px solid var(--lin-border);background:white;color:var(--dark);transition:all .2s;}
-.export-btn:hover{border-color:var(--dark);}
-.export-btn-primary{background:var(--dark);color:white;border-color:var(--dark);}
-.export-btn-primary:hover{background:#2A2010;}
 
 /* CONFETTI */
 .confetti-wrap{position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden;}
@@ -221,7 +189,6 @@ header{text-align:center;padding:3rem 2rem 1.5rem;position:relative;z-index:1;}
 @media(max-width:480px){
   .collection-title{font-size:2.6rem;}
   .card{padding:1.6rem 1.2rem;}
-  .export-btns{flex-direction:column;}
 }
 </style>
 </head>
@@ -239,7 +206,6 @@ header{text-align:center;padding:3rem 2rem 1.5rem;position:relative;z-index:1;}
     <div class="preview-body">
       <div class="preview-warning">Voici exactement ce que verra le destinataire. Vérifiez avant de sceller.</div>
       <div class="reveal-center">
-        <div id="prev-media-wrap" style="display:none;margin:0 0 1.2rem;"></div>
         <span class="jewel-icon">◆</span>
         <div id="prev-occ-wrap" style="display:none"><div class="occasion-badge" id="prev-occasion"></div></div>
         <p class="recipient-name" id="prev-name"></p>
@@ -323,7 +289,9 @@ header{text-align:center;padding:3rem 2rem 1.5rem;position:relative;z-index:1;}
       <div class="option-body" id="body-occasion">
         <div class="pill-group">
           <div class="pill" data-occasion="Anniversaire">Anniversaire</div>
+          <div class="pill" data-occasion="Amour">Amour</div>
           <div class="pill" data-occasion="Amitié">Amitié</div>
+          <div class="pill" data-occasion="Mariage">Mariage</div>
           <div class="pill" data-occasion="Diplôme">Diplôme</div>
           <div class="pill" data-occasion="Fête des mères">Fête des mères</div>
           <div class="pill" data-occasion="Encouragement">Encouragement</div>
@@ -339,6 +307,11 @@ header{text-align:center;padding:3rem 2rem 1.5rem;position:relative;z-index:1;}
         <div class="suggestions-box" id="suggestions-box" style="display:none;">
           <div class="sug-title">✦ Suggestions — cochez celle(s) qui vous inspirent</div>
           <div id="suggestions-list"></div>
+          <div class="sug-regen-row" id="sug-regen-row" style="display:none;">
+            <button class="sug-regen-btn" id="btn-regen-sug" type="button">✦ Autres suggestions</button>
+            <span class="sug-counter" id="sug-counter">0 / 3</span>
+            <span class="sug-spinner" id="sug-spinner">✦ génération…</span>
+          </div>
         </div>
       </div>
     </div>
@@ -386,33 +359,6 @@ header{text-align:center;padding:3rem 2rem 1.5rem;position:relative;z-index:1;}
       </div>
     </div>
 
-    <!-- Médias -->
-    <div class="option-block" id="block-media">
-      <div class="option-header">
-        <div class="option-left"><span class="option-icon">▣</span>
-          <div><div class="option-title">Photo, vidéo ou audio</div><div class="option-desc">Ajoutez un contenu visuel ou vocal</div></div>
-        </div>
-        <label class="toggle"><input type="checkbox" id="tog-media"><span class="slider"></span></label>
-      </div>
-      <div class="option-body" id="body-media">
-        <div class="media-upload-area" id="media-drop-zone">
-          <input type="file" id="media-file-input" accept="image/*,video/*,audio/*" multiple>
-          <span class="media-upload-icon">▣</span>
-          <div class="media-upload-label">
-            <strong>Cliquez ou déposez vos fichiers ici</strong>
-            Photo, vidéo ou message audio
-          </div>
-          <div class="media-types">
-            <span class="media-type-badge">Photo</span>
-            <span class="media-type-badge">Vidéo</span>
-            <span class="media-type-badge">Audio</span>
-          </div>
-        </div>
-        <div class="media-error" id="media-error">Fichier trop volumineux (max 20 Mo) ou format non supporté.</div>
-        <div class="media-limit-info">Maximum 3 fichiers · 20 Mo par fichier · JPG, PNG, MP4, MOV, MP3, WAV</div>
-        <div class="media-previews" id="media-previews"></div>
-      </div>
-    </div>
 
     <!-- RGPD + bouton -->
     <div class="card" style="margin-top:.3rem;">
@@ -433,42 +379,13 @@ header{text-align:center;padding:3rem 2rem 1.5rem;position:relative;z-index:1;}
     <div class="card" style="text-align:center;">
       <div class="success-icon">✦</div>
       <h2 class="card-title" style="text-align:center;">Message scellé !</h2>
-      <div class="alert-box alert-success show" id="success-msg">Votre message a été transmis à ALNAÉ Infinity. Nous le traiterons sous 24 à 48h ouvrées.</div>
+      <div class="alert-box alert-success show" id="success-msg">Votre message a été transmis à l'équipe ALNAÉ Infinity. Nous préparons votre bijou avec soin sous 24 à 48h ouvrées.</div>
 
-      <p style="font-size:.75rem;color:var(--text-m);line-height:1.8;margin:1rem 0;">Votre bijou est maintenant associé à ce message confidentiel. Le destinataire le découvrira en scannant le QR code ci-dessous et en saisissant son code PIN.</p>
 
-      <!-- Carte imprimable -->
-      <div class="carte-wrap">
-        <div class="carte-label">✦ Carte à glisser dans le paquet cadeau</div>
-        <div class="carte-preview">
-          <div class="carte-info">
-            <div class="carte-brand-s">ALNAÉ Infinity</div>
-            <div class="carte-title-s">Confidente</div>
-            <div class="carte-instr">Scannez le QR code ou rendez-vous sur<br><strong style="color:var(--dark);">alnaeinfinity.com/pages/confidente</strong><br>et saisissez le code ci-dessous.</div>
-            <div class="carte-code-lbl">Code confidentiel</div>
-            <div class="carte-code-val" id="carte-code-val">—</div>
-          </div>
-          <div id="carte-qr-display"></div>
-        </div>
-        <div class="carte-footer-s">www.alnaeinfinity.com ◆ Collection Confidente</div>
-      </div>
 
-      <!-- Boutons export -->
-      <div class="export-btns">
-        <button class="export-btn export-btn-primary" id="btn-print">🖨️ Imprimer</button>
-        <button class="export-btn" id="btn-dl-png">⬇ PNG</button>
-        <button class="export-btn" id="btn-dl-pdf-card">⬇ PDF</button>
-        <button class="export-btn" id="btn-dl-svg">⬇ SVG</button>
-      </div>
-      <div style="margin-top:.5rem;font-size:.63rem;color:var(--text-d);text-align:left;line-height:1.7;">
-        <strong>PNG</strong> = image haute qualité, redimensionnable librement ·
-        <strong>PDF</strong> = jet d'encre ·
-        <strong>SVG</strong> = vectoriel, imprimante laser
-      </div>
-
-      <div style="margin-top:1.5rem;padding:1rem;background:rgba(139,105,20,.04);border:1px solid rgba(139,105,20,.15);font-size:.7rem;color:var(--text-m);line-height:1.7;text-align:left;">
-        <strong style="color:var(--dark);">Prochaine étape :</strong><br>
-        Imprimez cette carte, découpez-la et glissez-la dans le paquet cadeau. Le destinataire n'aura qu'à scanner le QR code ou saisir le code du bijou <strong>et son code confidentiel</strong> pour découvrir votre message.
+     <div style="margin-top:1.5rem;padding:1rem;background:rgba(139,105,20,.04);border:1px solid rgba(139,105,20,.15);font-size:.7rem;color:var(--text-m);line-height:1.7;text-align:left;">
+        <strong style="color:var(--dark);">✦ C'est tout !</strong><br>
+        Votre message est transmis. L'équipe ALNAÉ Infinity prépare votre bijou sous 24 à 48h ouvrées et vous contactera pour le suivi d'expédition.
       </div>
     </div>
   </div>
@@ -488,13 +405,12 @@ const state = {
   orderNumber: '',
   codeIndex: 1,
   currentOccasion: '',
+  sugAttempts: 0,       // compteur tentatives suggestions (max 3)
   preview: null,
   messageRecord: null,
   cachedEtym: {}
 };
-const mediaFiles = [];
-const MAX_FILES=3, MAX_SIZE=20*1024*1024;
-const ALLOWED=['image/jpeg','image/png','image/gif','image/webp','video/mp4','video/quicktime','video/webm','audio/mpeg','audio/wav','audio/mp4','audio/x-m4a','audio/ogg'];
+
 
 // ── GENRES ────────────────────────────────────────────────────────
 const PRENOMS_M=new Set(['aaron','adam','adrien','alexandre','alexis','alban','albert','ali','allan','arnaud','arthur','aurelien','axel','ayoub','baptiste','benjamin','benoit','bernard','boris','brice','bruno','cedric','charles','christophe','clement','corentin','cyril','damien','daniel','david','denis','dorian','dylan','edouard','emmanuel','eric','ethan','etienne','evan','felix','florian','francois','frederic','gabriel','gabin','gautier','gerard','gilles','guillaume','gustave','guy','henri','hugo','isaac','ivan','jack','jean','jeremy','jerome','julien','kevin','kylian','laurent','leon','leonard','liam','lionel','luca','lucas','ludovic','leo','loic','louis','luka','mael','malo','marc','martin','mathieu','mathis','maxime','maxence','mehdi','michael','michel','milan','morgan','nael','nathan','nicolas','noah','noel','nolan','octave','olivier','oscar','paul','philippe','pierre','rafael','raphael','regis','remi','renaud','rene','robin','romain','ruben','samuel','sasha','sebastien','serge','simon','stanislas','stephane','sylvain','tanguy','theo','thibault','thierry','thomas','timothee','tom','tristan','ugo','valentin','victor','vincent','william','xavier','yann','yannick','yves','zacharie','zinedine']);
@@ -502,7 +418,17 @@ function detectGenre(p){if(!p)return'F';const s=p.trim().toLowerCase().normalize
 
 const CITATIONS={F:["Tu es plus forte que tu ne le crois, plus belle que tu ne le vois, et plus aimée que tu ne le sais.\n\nN'oublie pas qui tu es.","Porter ce bijou, c'est porter un morceau de l'âme de quelqu'un qui croit en toi.\n\nN'oublie pas qui tu es.","Elle croyait qu'elle pouvait, alors elle l'a fait.\n\nN'oublie pas qui tu es."],M:["Tu es plus fort que tu ne le crois, plus grand que tu ne le vois, et plus aimé que tu ne le sais.\n\nN'oublie pas qui tu es.","Porter ce bijou, c'est porter un morceau de l'âme de quelqu'un qui croit en toi.\n\nN'oublie pas qui tu es.","Il croyait qu'il pouvait, alors il l'a fait.\n\nN'oublie pas qui tu es."]};
 
-const SUGGESTIONS={'Anniversaire':["En ce jour si particulier, je voulais que tu saches à quel point tu comptes. Chaque année te rend encore plus toi. Joyeux anniversaire.","Tu mérites ce bijou, comme tu mérites tout ce que la vie a de plus beau. Avec tout mon amour.","Le temps passe, mais la place que tu as dans mon cœur ne change pas."],'Amitié':["Certaines personnes entrent dans ta vie et tu réalises que tu ne peux plus imaginer sans elles. Tu es de celles-là.","On dit que les vrais amis sont rares. Je suis si heureux/heureuse de t'avoir trouvé(e).","Ce bijou est un morceau de notre amitié. Porte-le quand tu as besoin de te sentir moins seul(e)."],'Diplôme':["Tu as travaillé, tu as persévéré, tu y es arrivé(e). Ce diplôme représente tout ce que tu peux accomplir.","Félicitations. Que cette réussite soit le début de tout ce que tu as rêvé de construire.","Je t'ai regardé(e) avancer, douter parfois, mais jamais abandonner. Je suis fier/fière de toi."],'Fête des mères':["Aucun bijou ne pourra exprimer tout ce que tu représentes. Mais j'espère qu'il te rappellera à quel point tu es aimée.","Tu m'as appris à me lever quand je tombe, à aimer sans condition. Merci.","Pour celle qui a tout donné sans jamais rien demander. Ce bijou est fait pour toi."],'Encouragement':["Je sais que ce n'est pas facile. Mais je connais ta force. Tu vas y arriver.","Tu es capable, tu es fort(e), tu es exactement où tu dois être.","Porte ce bijou comme un rappel que tu n'es jamais seul(e). Quelqu'un croit en toi."],'Souvenir':["Ce moment entre nous, je ne veux pas l'oublier. Voici quelque chose qui t'y ramène.","Les mots ne suffisent pas. Ce bijou porte notre souvenir.","Là où les photos s'effacent et les mots se perdent, ce bijou restera."],'Noël':["En cette période de lumières, j'avais envie de t'offrir quelque chose qui te ressemble. Joyeux Noël.","Noël, c'est le moment que je préfère pour dire les choses qu'on n'ose pas dire. Tu comptes énormément.","Ce bijou est mon cadeau, mais surtout un morceau de moi que je t'offre."]};
+const SUGGESTIONS={
+  'Anniversaire':["En ce jour si particulier, je voulais que tu saches à quel point tu comptes. Chaque année te rend encore plus toi.","Tu mérites ce bijou, comme tu mérites tout ce que la vie a de plus beau. Avec tout mon amour.","Le temps passe, mais la place que tu as dans mon cœur ne change pas."],
+  'Amour':["Tu n'as rien à faire pour être aimé(e). Tu l'es déjà, entièrement, tel(le) que tu es.","Ce bijou est une façon de te dire ce que les mots peinent parfois à exprimer. Je t'aime.","Tu es la raison pour laquelle je crois aux belles choses. Porte ce bijou près de toi."],
+  'Amitié':["Certaines personnes entrent dans ta vie et tu réalises que tu ne peux plus imaginer sans elles. Tu es de celles-là.","Les vraies amitiés sont rares. La nôtre compte parmi mes plus belles évidences.","Ce bijou est un morceau de notre histoire. Porte-le quand tu as besoin de te sentir moins seul(e)."],
+  'Mariage':["Deux âmes qui choisissent de marcher ensemble. Ce bijou célèbre ce courage et cet amour.","Que chaque jour soit une nouvelle raison de s'être dit oui. Avec toute mon affection.","Ce bijou accompagnera les plus beaux moments de votre vie ensemble. Félicitations."],
+  'Diplôme':["Tu as travaillé, persévéré, et tu y es arrivé(e). Ce diplôme représente tout ce que tu peux accomplir.","Félicitations. Que cette réussite soit le premier chapitre de tout ce que tu as rêvé de construire.","Je t'ai regardé(e) avancer, douter parfois, mais jamais abandonner. Je suis fier/fière de toi."],
+  'Fête des mères':["Aucun bijou ne pourra exprimer tout ce que tu représentes. Mais j'espère qu'il te rappellera à quel point tu es aimée.","Tu m'as appris à me lever quand je tombe, à aimer sans condition. Merci pour tout.","Pour celle qui a tout donné sans jamais rien demander. Ce bijou est fait pour toi."],
+  'Encouragement':["Je sais que ce n'est pas facile. Mais je connais ta force. Tu vas y arriver.","Tu es capable, tu es exactement où tu dois être. Continue.","Porte ce bijou comme un rappel que tu n'es jamais seul(e). Quelqu'un croit en toi."],
+  'Souvenir':["Ce moment entre nous, je ne veux pas l'oublier. Voici quelque chose qui t'y ramène.","Les mots ne suffisent pas. Ce bijou porte notre souvenir.","Là où les photos s'effacent et les mots se perdent, ce bijou restera."],
+  'Noël':["En cette période de lumières, j'avais envie de t'offrir quelque chose qui te ressemble. Joyeux Noël.","Noël, c'est le moment que je préfère pour dire les choses qu'on n'ose pas dire. Tu comptes énormément.","Ce bijou est mon cadeau, mais surtout un morceau de moi que je t'offre."]
+};
 
 // ── UTILITAIRES ───────────────────────────────────────────────────
 const g=id=>document.getElementById(id);
@@ -515,187 +441,141 @@ function setInpErr(id,show){const e=g(id);if(e)e.classList.toggle('err',!!show);
 
 
 // ── QR CODE ───────────────────────────────────────────────────────
-function generateQR(containerId,url,size){const el=g(containerId);if(!el||typeof QRCode==='undefined')return;el.innerHTML='';new QRCode(el,{text:url,width:size||100,height:size||100,colorDark:'#1C1408',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.H});}
 
 // ── CONFETTI ──────────────────────────────────────────────────────
 function launchConfetti(){const c=g('confetti');if(!c)return;c.innerHTML='';for(let i=0;i<30;i++){const p=document.createElement('div');p.className='cp';p.style.cssText='left:'+Math.random()*100+'vw;animation-duration:'+(Math.random()*2+1.5)+'s;animation-delay:'+(Math.random()*.8)+'s;width:'+(Math.random()*6+4)+'px;height:'+(Math.random()*6+4)+'px;background:'+(Math.random()>.5?'#8B6914':'#C8BAA0')+';border-radius:'+(Math.random()>.5?'50%':'0')+';';c.appendChild(p);}setTimeout(()=>{c.innerHTML='';},4000);}
 
 // ── IA ÉTYMOLOGIE ─────────────────────────────────────────────────
 async function fetchEtymIA(prenom){
-  const key=norm(prenom);
-  if(state.cachedEtym[key])return state.cachedEtym[key];
-  const genre=detectGenre(prenom);
-  const gLabel=genre==='M'?'masculin':'féminin';
-  try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',max_tokens:400,
-        system:`Tu es une poétesse qui écrit pour une marque de bijoux de luxe français, ALNAÉ Infinity.
-Tu écris l'essence d'un prénom — pas une définition, une émotion.
-Structure : 3 courts paragraphes séparés par une ligne vide.
-1. L'origine du prénom, racontée comme une légende douce (2 phrases max)
-2. Ce que ce prénom révèle de la personne qui le porte — accordé au genre ${gLabel} (2 phrases intimes, en tutoiement)
-3. Une phrase finale courte, forte, qui reste gravée dans la mémoire
-Ton : poétique, intime, précis. Pas de liste, pas de tiret, pas de guillemets, pas de markdown.
-Ce texte sera gravé sur une carte qui accompagne un bijou. Chaque mot compte.`,
-        messages:[{role:'user',content:`Prénom : ${prenom}. Genre : ${gLabel}. Écris l'essence de ce prénom.`}]
-      })
+  const key = (prenom||'').toLowerCase().trim();
+  if(state.cachedEtym[key]) return state.cachedEtym[key];
+  try {
+    const r = await fetch(RENDER_URL + '/generate-etym', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prenom })
     });
-    const d=await r.json();const t=d.content?.[0]?.text;
-    if(t){const c=t.replace(/\*([^*]+)\*/g,'$1').trim();state.cachedEtym[key]=c;return c;}
-  }catch(_){}
-  const g2=detectGenre(prenom);
-  return g2==='M'
-    ?`${prenom} porte en lui la force tranquille de ceux qui savent qui ils sont.
-
-Il avance avec une clarté rare — celle des hommes qui ne cherchent plus à prouver, mais à créer.
-
-Porte-le. Il te va bien.`
-    :`${prenom} porte en lui la grâce de celles qui ont su traverser les tempêtes sans perdre leur lumière.
-
-Il incarne une douceur qui ne capitule pas, une élégance qui vient de l'intérieur.
-
-Porte-le. Il te ressemble.`;
+    const d = await r.json();
+    if (d.etymologyText) {
+      state.cachedEtym[key] = d.etymologyText;
+      return d.etymologyText;
+    }
+  } catch(_) {}
+  // Fallback local si le serveur est inaccessible
+  return prenom + ' porte en lui une énergie singulière, celle des êtres qui savent qui ils sont.\n\nPorte-le avec fierté. Il te ressemble.';
 }
 
-// ── IA CITATION ───────────────────────────────────────────────────
-async function fetchMotivIA(prenom,occasion,msg){
-  const genre=detectGenre(prenom);
-  const gLabel=genre==='M'?'masculin':'féminin';
-  const ctx=[];
-  if(occasion&&occasion!=='Autre')ctx.push(`Occasion : ${occasion}`);
-  if(msg)ctx.push(`Contexte émotionnel du message : "${msg.slice(0,120)}"`);
-  const contextStr=ctx.join('. ');
-  try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',max_tokens:150,
-        system:`Tu es la voix d'ALNAÉ Infinity — une marque de bijoux français haut de gamme qui croit que chaque bijou porte une âme.
-Tu écris UNE citation courte (2 à 3 phrases max) qui accompagnera un bijou offert.
-Cette citation doit :
-- être accordée au genre ${gLabel} du destinataire
-- résonner avec le contexte émotionnel fourni
-- ne jamais être générique — elle doit sembler écrite uniquement pour cette personne
-- se terminer TOUJOURS par cette phrase signature : « N'oublie pas qui tu es. »
-Ton : entre Rilke et une lettre d'amour. Poétique, puissant, intime.
-Pas de guillemets dans le texte. Pas de tiret. Pas de markdown.`,
-        messages:[{role:'user',content:`Prénom du destinataire : ${prenom}. ${contextStr||'Bijou offert avec amour.'}`}]
-      })
+
+async function fetchMotivIA(prenom, occasion, msg){
+  try {
+    const r = await fetch(RENDER_URL + '/generate-motiv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prenom, occasion: occasion||'', personalMessage: msg||'' })
     });
-    const d=await r.json();const t=d.content?.[0]?.text;
-    if(t)return t.replace(/\*([^*]+)\*/g,'$1').trim();
-  }catch(_){}
-  const list=CITATIONS[genre]||CITATIONS.F;
-  return list[Math.floor(Math.random()*list.length)];
+    const d = await r.json();
+    if (d.motivationText) return d.motivationText;
+  } catch(_) {}
+  return "Porter ce bijou, c'est porter un morceau de l'âme de quelqu'un qui croit en toi.\n\nN'oublie pas qui tu es.";
 }
 
-// ── IA SUGGESTIONS ────────────────────────────────────────────────
-async function fetchSuggestionsIA(occasion,prenom){
-  const genre=detectGenre(prenom||'');
-  const gLabel=genre==='M'?'masculin':'féminin';
-  try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',max_tokens:600,
-        system:`Tu es une autrice spécialisée dans les messages accompagnant des bijoux de luxe.
-Tu vas écrire 3 messages distincts pour accompagner un bijou offert lors d'une occasion précise.
-Chaque message doit :
-- faire entre 2 et 4 phrases
-- être accordé au genre ${gLabel} du destinataire
-- être unique dans son ton : le 1er touchant, le 2e poétique, le 3e puissant
-- sonner comme écrit à la main, pas comme un template
-- utiliser le tutoiement
-- ne jamais être banal ou générique
-Réponds UNIQUEMENT en JSON valide, sans markdown, sans commentaire.
-Format exact : {"suggestions":["message1","message2","message3"]}`,
-        messages:[{role:'user',content:`Occasion : ${occasion}. Prénom du destinataire : ${prenom||'le destinataire'} (genre : ${gLabel}).`}]
-      })
+
+async function fetchSuggestionsIA(occasion, prenom){
+  try {
+    const r = await fetch(RENDER_URL + '/generate-suggestions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ occasion, prenom: prenom||'' })
     });
-    const d=await r.json();const t=d.content?.[0]?.text||'{}';
-    const parsed=JSON.parse(t.replace(/[`]{3}json|[`]{3}/g,'').trim());
-    if(parsed.suggestions?.length>=3)return parsed.suggestions;
-  }catch(_){}
-  return SUGGESTIONS[occasion]||null;
+    const d = await r.json();
+    if (d.suggestions?.length >= 3) return d.suggestions;
+  } catch(_) {}
+  return null; // déclenche le fallback statique dans renderSuggestions
 }
+
 
 // ── SUGGESTIONS AFFICHAGE ─────────────────────────────────────────
-function renderSuggestions(occasion){
-  const box=g('suggestions-box'),list=g('suggestions-list');
-  if(!box||!list)return;
-  const fallback=SUGGESTIONS[occasion];
-  if(fallback){renderFromList(fallback);}else{box.style.display='none';}
-  if(occasion&&occasion!=='Autre'){
-    const prenom=g('recipient-name')?.value?.trim()||'';
-    fetchSuggestionsIA(occasion,prenom).then(ai=>{if(ai)renderFromList(ai);});
-  }
+const MAX_SUG_ATTEMPTS = 3;
+
+function resetSugAttempts(){
+  state.sugAttempts = 0;
+  updateRegenBtn();
 }
-function renderFromList(items){
-  const box=g('suggestions-box'),list=g('suggestions-list');
-  if(!box||!list||!items?.length){if(box)box.style.display='none';return;}
+
+function updateRegenBtn(){
+  const btn     = g('btn-regen-sug');
+  const counter = g('sug-counter');
+  const row     = g('sug-regen-row');
+  if(!btn||!counter||!row) return;
+  const remaining = MAX_SUG_ATTEMPTS - state.sugAttempts;
+  counter.textContent = state.sugAttempts + ' / ' + MAX_SUG_ATTEMPTS;
+  btn.disabled = remaining <= 0;
+  btn.title    = remaining <= 0 ? 'Limite atteinte' : 'Générer 3 nouvelles suggestions';
+}
+
+async function renderSuggestions(occasion){
+  const box=g('suggestions-box'), list=g('suggestions-list');
+  if(!box||!list) return;
+  if(!occasion || occasion==='Autre'){ box.style.display='none'; return; }
+
+  // Afficher fallback immédiatement
+  const fallback = SUGGESTIONS[occasion];
+  if(fallback) renderFromList(fallback, false);
+  else box.style.display='none';
+
+  // Charger IA en parallèle
+  const prenom = g('recipient-name')?.value?.trim()||'';
+  state.sugAttempts++;
+  updateRegenBtn();
+  const ai = await fetchSuggestionsIA(occasion, prenom);
+  if(ai) renderFromList(ai, false);
+}
+
+function renderFromList(items, isRegen){
+  const box=g('suggestions-box'), list=g('suggestions-list'), row=g('sug-regen-row');
+  if(!box||!list||!items?.length){ if(box)box.style.display='none'; return; }
   list.innerHTML='';
   items.forEach(txt=>{
-    const row=document.createElement('div');row.className='sug-item';
-    const cb=document.createElement('input');cb.type='checkbox';cb.dataset.text=txt;
-    const sp=document.createElement('span');sp.textContent=txt;
-    row.appendChild(cb);row.appendChild(sp);
-    cb.addEventListener('change',applySuggestions);
-    sp.addEventListener('click',()=>{cb.checked=!cb.checked;applySuggestions();});
-    list.appendChild(row);
+    const div=document.createElement('div'); div.className='sug-item';
+    const cb=document.createElement('input'); cb.type='checkbox'; cb.dataset.text=txt;
+    const sp=document.createElement('span'); sp.textContent=txt;
+    div.appendChild(cb); div.appendChild(sp);
+    cb.addEventListener('change', applySuggestions);
+    sp.addEventListener('click',()=>{ cb.checked=!cb.checked; applySuggestions(); });
+    list.appendChild(div);
   });
   box.style.display='block';
+  if(row){ row.style.display='flex'; updateRegenBtn(); }
 }
+
 function applySuggestions(){
   const sel=Array.from(document.querySelectorAll('#suggestions-list input:checked')).map(cb=>cb.dataset.text);
-  if(!sel.length)return;
-  const ta=g('message-input');ta.value=sel.join('\n\n');setText('char-count',String(ta.value.length));
-  if(!toggleOn('tog-message')){g('tog-message').checked=true;g('body-message').classList.add('open');g('block-message').classList.add('on');}
+  if(!sel.length) return;
+  const ta=g('message-input'); ta.value=sel.join('\n\n'); setText('char-count',String(ta.value.length));
+  if(!toggleOn('tog-message')){
+    g('tog-message').checked=true;
+    g('body-message')?.classList.add('open');
+    g('block-message')?.classList.add('on');
+  }
 }
 
-// ── MÉDIAS ────────────────────────────────────────────────────────
-function fmtSize(b){return b<1024*1024?(b/1024).toFixed(1)+' Ko':(b/1024/1024).toFixed(1)+' Mo';}
-function renderMediaPreviews(){
-  const cont=g('media-previews');if(!cont)return;cont.innerHTML='';
-  mediaFiles.forEach((file,idx)=>{
-    const url=URL.createObjectURL(file);
-    const item=document.createElement('div');item.className='media-item';
-    let inner=file.type.startsWith('image')?'<img src="'+(file._dataUrl||url)+'" class="media-item-preview" alt="">'
-      :'<span style="font-size:1.2rem;">'+(file.type.startsWith('video')?'🎥':'🎙️')+'</span>';
-    item.innerHTML=inner+'<div class="media-item-info"><div class="media-item-name">'+file.name+'</div><div class="media-item-size">'+fmtSize(file.size)+'</div>'+(file.type.startsWith('audio')?'<audio controls style="width:100%;margin-top:.3rem;" src="'+url+'"></audio>':'')+'</div><button class="media-item-remove" data-idx="'+idx+'">✕</button>';
-    item.querySelector('.media-item-remove').addEventListener('click',function(){mediaFiles.splice(parseInt(this.dataset.idx),1);renderMediaPreviews();updateDropZone();});
-    cont.appendChild(item);
-  });
+// Listener "Générer à nouveau"
+async function regenSuggestions(){
+  if(state.sugAttempts >= MAX_SUG_ATTEMPTS) return;
+  const btn=g('btn-regen-sug'), spinner=g('sug-spinner');
+  btn.disabled=true;
+  if(spinner) spinner.style.display='inline';
+  const occasion = state.currentOccasion==='Autre'
+    ? (g('autre-text')?.value?.trim()||'Autre')
+    : state.currentOccasion;
+  const prenom = g('recipient-name')?.value?.trim()||'';
+  state.sugAttempts++;
+  updateRegenBtn();
+  const ai = await fetchSuggestionsIA(occasion, prenom);
+  if(spinner) spinner.style.display='none';
+  if(ai){ renderFromList(ai, true); }
+  else { updateRegenBtn(); }
 }
-function updateDropZone(){const z=g('media-drop-zone'),i=g('media-file-input');if(!z||!i)return;const d=mediaFiles.length>=MAX_FILES;z.style.opacity=d?'.5':'1';z.style.pointerEvents=d?'none':'auto';i.disabled=d;}
-function handleMedia(files){
-  const errEl=g('media-error');if(errEl)errEl.classList.remove('show');let hasErr=false;
-  Array.from(files).forEach(f=>{
-    if(mediaFiles.length>=MAX_FILES)return;
-    if(f.size>MAX_SIZE||!ALLOWED.includes(f.type)){hasErr=true;return;}
-    if(!mediaFiles.find(m=>m.name===f.name&&m.size===f.size)){
-      if(f.type.startsWith('image')){const r=new FileReader();r.onload=e=>{f._dataUrl=e.target.result;renderMediaPreviews();};r.readAsDataURL(f);}
-      mediaFiles.push(f);
-    }
-  });
-  if(hasErr&&errEl)errEl.classList.add('show');
-  renderMediaPreviews();updateDropZone();
-}
-
-// ── APERÇU MÉDIAS ─────────────────────────────────────────────────
-function renderPrevMedia(){
-  const wrap=g('prev-media-wrap');if(!wrap)return;
-  if(!mediaFiles.length){wrap.style.display='none';return;}
-  wrap.style.display='block';wrap.innerHTML='';
-  mediaFiles.forEach(f=>{
-    const url=URL.createObjectURL(f);
-    if(f.type.startsWith('image')){const img=document.createElement('img');img.src=f._dataUrl||url;img.style.cssText='max-width:100%;max-height:220px;object-fit:contain;border:1px solid var(--lin-border);display:block;margin:.4rem auto;';wrap.appendChild(img);}
-    else if(f.type.startsWith('audio')){const d=document.createElement('div');d.style.cssText='padding:.5rem;background:var(--lin-soft);margin:.3rem 0;font-size:.7rem;';d.innerHTML='🎙️ '+f.name+'<br><audio controls style="width:100%;margin-top:.3rem;" src="'+url+'"></audio>';wrap.appendChild(d);}
-    else if(f.type.startsWith('video')){const v=document.createElement('video');v.src=url;v.controls=true;v.style.cssText='max-width:100%;max-height:200px;display:block;margin:.4rem auto;border:1px solid var(--lin-border);';wrap.appendChild(v);}
-  });
-}
-
 // ── ÉTAPE 1 : VALIDER LE CODE CLIENT ─────────────────────────────
 g('btn-validate-code')?.addEventListener('click', validateClientCode);
 g('client-code-input')?.addEventListener('keydown', e => { if(e.key==='Enter')validateClientCode(); });
@@ -749,7 +629,6 @@ async function buildPreview(){
   if(occasion){setText('prev-occasion',occasion);g('prev-occ-wrap').style.display='block';}
   else g('prev-occ-wrap').style.display='none';
   setText('prev-from','— De la part de');
-  renderPrevMedia();
   try{
     let etymologyText=null,motivationText=null;
     if(hasEtym)etymologyText=await fetchEtymIA(recipient);
@@ -796,8 +675,6 @@ async function sealMessage(){
     state.messageRecord={jewelCode,revealUrl,...state.preview};
 
     // Afficher la carte
-    setText('carte-code-val',jewelCode);
-    generateQR('carte-qr-display',revealUrl,90);
     closePreview();launchConfetti();showPage('page-success');
 
   }catch(err){
@@ -805,252 +682,6 @@ async function sealMessage(){
     closePreview();
   }finally{btn.disabled=false;btn.textContent='✦ CONFIRMER ET SCELLER';}
 }
-
-// ── IMPRESSION + EXPORTS ──────────────────────────────────────────
-g('btn-print')?.addEventListener('click', printCarte);
-g('btn-dl-svg')?.addEventListener('click', downloadSVG);
-g('btn-dl-pdf-card')?.addEventListener('click', downloadPDF);
-g('btn-dl-png')?.addEventListener('click', downloadPNG);
-
-// ── RENDU CARTE SUR CANVAS (source unique pour tous les exports) ──
-// Retourne une Promise<canvas> avec la carte complète haute qualité
-function renderCarteCanvas(scale) {
-  scale = scale || 3; // 3x = haute résolution impression
-  const W = 360, H = 540; // carte verticale format A6 environ
-
-  const canvas = document.createElement('canvas');
-  canvas.width  = W * scale;
-  canvas.height = H * scale;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(scale, scale);
-
-  // ── Fond blanc ──
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(0, 0, W, H);
-
-  // ── Bordure fine ──
-  ctx.strokeStyle = '#1C1408';
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(1, 1, W-2, H-2);
-
-  // ── Bande décorative dorée en haut ──
-  ctx.fillStyle = '#1C1408';
-  ctx.fillRect(0, 0, W, 56);
-
-  // ── Ligne or sous la bande ──
-  const grad = ctx.createLinearGradient(0, 56, W, 56);
-  grad.addColorStop(0, 'transparent');
-  grad.addColorStop(0.5, '#8B6914');
-  grad.addColorStop(1, 'transparent');
-  ctx.strokeStyle = grad;
-  ctx.lineWidth = 1;
-  ctx.beginPath();ctx.moveTo(0,57);ctx.lineTo(W,57);ctx.stroke();
-
-  // ── Marque ALNAÉ ──
-  ctx.fillStyle = '#8B6914';
-  ctx.font = '600 8px "Arial", sans-serif';
-  ctx.letterSpacing = '3px';
-  ctx.textAlign = 'center';
-  ctx.fillText('A L N A É   I N F I N I T Y', W/2, 22);
-
-  // ── Titre Confidente ──
-  ctx.fillStyle = '#F0EBE0';
-  ctx.font = 'italic 26px "Georgia", serif';
-  ctx.fillText('Confidente', W/2, 44);
-
-  // ── Diamant décoratif ──
-  ctx.fillStyle = '#8B6914';
-  ctx.font = '14px serif';
-  ctx.fillText('◆', W/2, 80);
-
-  // ── QR CODE (depuis le canvas généré) ──
-  const qrEl = document.getElementById('carte-qr-display');
-  const qrCanvas = qrEl ? qrEl.querySelector('canvas') : null;
-  const qrSize = 120;
-  const qrX = (W - qrSize) / 2;
-  const qrY = 96;
-  if (qrCanvas) {
-    // Fond blanc sous le QR
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(qrX - 4, qrY - 4, qrSize + 8, qrSize + 8);
-    ctx.strokeStyle = '#E8E2D4';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(qrX - 4, qrY - 4, qrSize + 8, qrSize + 8);
-    ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
-  } else {
-    // Placeholder QR
-    ctx.fillStyle = '#F2EDE3';
-    ctx.fillRect(qrX, qrY, qrSize, qrSize);
-    ctx.fillStyle = '#8A7A60';
-    ctx.font = '10px Arial';
-    ctx.fillText('QR Code', W/2, qrY + qrSize/2);
-  }
-
-  // ── Séparateur ──
-  ctx.strokeStyle = '#E8E2D4';
-  ctx.lineWidth = 1;
-  const sepY = qrY + qrSize + 18;
-  ctx.beginPath();ctx.moveTo(40, sepY);ctx.lineTo(W-40, sepY);ctx.stroke();
-  ctx.fillStyle = '#8B6914';
-  ctx.font = '6px serif';
-  ctx.fillText('◆', W/2, sepY + 4);
-
-  // ── Instructions ──
-  ctx.fillStyle = '#5A4A2A';
-  ctx.font = '10px Arial';
-  ctx.textAlign = 'center';
-  const instrY = sepY + 20;
-  ctx.fillText('Rendez-vous sur', W/2, instrY);
-  ctx.fillStyle = '#1C1408';
-  ctx.font = 'bold 10px Arial';
-  ctx.fillText('alnaeinfinity.com/pages/confidente', W/2, instrY + 15);
-  ctx.fillStyle = '#5A4A2A';
-  ctx.font = '10px Arial';
-  ctx.fillText('et saisissez votre code confidentiel', W/2, instrY + 30);
-  ctx.fillText('pour découvrir votre message.', W/2, instrY + 45);
-
-  // ── Code confidentiel ──
-  const rec = state.messageRecord;
-  const code = rec ? rec.jewelCode : '—';
-  const codeY = instrY + 70;
-
-  // Fond code
-  ctx.fillStyle = '#F8F4EE';
-  ctx.strokeStyle = '#1C1408';
-  ctx.lineWidth = 1.5;
-  const codeW = 200, codeH = 30;
-  const codeX = (W - codeW) / 2;
-  ctx.fillRect(codeX, codeY - 20, codeW, codeH);
-  ctx.strokeRect(codeX, codeY - 20, codeW, codeH);
-
-  // Label
-  ctx.fillStyle = '#8A7A60';
-  ctx.font = '7px Arial';
-  ctx.letterSpacing = '1px';
-  ctx.fillText('C O D E   C O N F I D E N T I E L', W/2, codeY - 6);
-
-  // Code valeur
-  ctx.fillStyle = '#1C1408';
-  ctx.font = 'bold 13px "Courier New", monospace';
-  ctx.letterSpacing = '2px';
-  ctx.fillText(code, W/2, codeY + 4);
-
-  // ── Pied de page ──
-  const footerY = H - 28;
-  ctx.strokeStyle = '#E8E2D4';
-  ctx.lineWidth = 1;
-  ctx.beginPath();ctx.moveTo(20, footerY - 8);ctx.lineTo(W-20, footerY - 8);ctx.stroke();
-  ctx.fillStyle = '#8A7A60';
-  ctx.font = '7.5px Arial';
-  ctx.letterSpacing = '0.5px';
-  ctx.fillText('www.alnaeinfinity.com', W/2, footerY + 4);
-  ctx.fillStyle = '#8B6914';
-  ctx.font = '8px serif';
-  ctx.fillText('◆   ◆   ◆', W/2, footerY + 16);
-
-  return canvas;
-}
-
-// ── IMPRESSION ────────────────────────────────────────────────────
-function printCarte() {
-  const rec = state.messageRecord; if(!rec)return;
-  const canvas = renderCarteCanvas(3);
-  const dataUrl = canvas.toDataURL('image/png');
-  const w = window.open('', '_blank', 'width=520,height=780');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>Carte ALNAÉ — ${rec.jewelCode}</title>
-<style>*{margin:0;padding:0;box-sizing:border-box;}
-body{background:#f5f5f5;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px;font-family:Arial,sans-serif;}
-img{max-width:360px;width:100%;box-shadow:0 4px 20px rgba(0,0,0,.15);display:block;}
-.actions{margin-top:18px;display:flex;gap:10px;}
-.btn{padding:10px 22px;border:none;font-size:12px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-family:Arial,sans-serif;}
-.bp{background:#1C1408;color:white;}
-.bc{background:white;border:1px solid #C8BAA0;color:#5A4A2A;}
-@media print{body{background:white;padding:0;}.actions{display:none;}img{box-shadow:none;max-width:100%;}}
-</style></head><body>
-<img src="${dataUrl}" alt="Carte ALNAÉ Confidente">
-<div class="actions">
-<button class="btn bp" onclick="window.print()">Imprimer</button>
-<button class="btn bc" onclick="window.close()">Fermer</button>
-</div></body></html>`);
-  w.document.close();
-}
-
-// ── TÉLÉCHARGER PNG ───────────────────────────────────────────────
-function downloadPNG() {
-  const rec = state.messageRecord; if(!rec)return;
-  const canvas = renderCarteCanvas(4); // 4x pour impression haute qualité
-  canvas.toBlob(blob => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'carte-alnae-' + rec.jewelCode + '.png';
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
-  }, 'image/png', 1.0);
-}
-
-// ── TÉLÉCHARGER SVG ───────────────────────────────────────────────
-function downloadSVG() {
-  const rec = state.messageRecord; if(!rec)return;
-  const qrEl = document.getElementById('carte-qr-display');
-  const qrCanvas = qrEl ? qrEl.querySelector('canvas') : null;
-  const qrDataUrl = qrCanvas ? qrCanvas.toDataURL('image/png') : '';
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="360" height="540" viewBox="0 0 360 540">
-  <defs><style>
-    .brand{font:600 8px Arial,sans-serif;fill:#8B6914;letter-spacing:3;}
-    .title{font:italic 26px Georgia,serif;fill:#F0EBE0;}
-    .instr{font:10px Arial,sans-serif;fill:#5A4A2A;text-anchor:middle;}
-    .instrb{font:bold 10px Arial,sans-serif;fill:#1C1408;text-anchor:middle;}
-    .klbl{font:7px Arial,sans-serif;fill:#8A7A60;text-anchor:middle;letter-spacing:1;}
-    .kval{font:bold 13px 'Courier New',monospace;fill:#1C1408;text-anchor:middle;letter-spacing:2;}
-    .url{font:7.5px Arial,sans-serif;fill:#8A7A60;text-anchor:middle;}
-  </style></defs>
-  <rect width="360" height="540" fill="white"/>
-  <rect width="360" height="540" fill="none" stroke="#1C1408" stroke-width="1.5"/>
-  <rect width="360" height="56" fill="#1C1408"/>
-  <text x="180" y="22" class="brand" text-anchor="middle">A L N A É   I N F I N I T Y</text>
-  <text x="180" y="44" class="title" text-anchor="middle">Confidente</text>
-  <text x="180" y="80" style="font:14px serif;fill:#8B6914;text-anchor:middle;">◆</text>
-  ${qrDataUrl
-    ? `<rect x="116" y="92" width="128" height="128" fill="white" stroke="#E8E2D4"/>
-       <image x="120" y="96" width="120" height="120" href="${qrDataUrl}"/>`
-    : `<rect x="120" y="96" width="120" height="120" fill="#F2EDE3" stroke="#C8BAA0"/>`}
-  <line x1="40" y1="238" x2="320" y2="238" stroke="#E8E2D4"/>
-  <text x="180" y="244" style="font:6px serif;fill:#8B6914;text-anchor:middle;">◆</text>
-  <text x="180" y="264" class="instr">Rendez-vous sur</text>
-  <text x="180" y="281" class="instrb">alnaeinfinity.com/pages/confidente</text>
-  <text x="180" y="298" class="instr">et saisissez votre code confidentiel</text>
-  <text x="180" y="314" class="instr">pour découvrir votre message.</text>
-  <rect x="80" y="335" width="200" height="30" fill="#F8F4EE" stroke="#1C1408" stroke-width="1.5"/>
-  <text x="180" y="346" class="klbl">C O D E   C O N F I D E N T I E L</text>
-  <text x="180" y="358" class="kval">${rec.jewelCode}</text>
-  <line x1="20" y1="498" x2="340" y2="498" stroke="#E8E2D4"/>
-  <text x="180" y="510" class="url">www.alnaeinfinity.com</text>
-  <text x="180" y="526" style="font:8px serif;fill:#8B6914;text-anchor:middle;">◆   ◆   ◆</text>
-</svg>`;
-  const blob = new Blob([svg], {type:'image/svg+xml'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'carte-alnae-' + rec.jewelCode + '.svg';
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a); URL.revokeObjectURL(url);
-}
-
-// ── TÉLÉCHARGER PDF ───────────────────────────────────────────────
-function downloadPDF() {
-  const rec = state.messageRecord; if(!rec)return;
-  if(typeof window.jspdf==='undefined'){alert('PDF non disponible. Utilisez le bouton PNG.');return;}
-  const {jsPDF} = window.jspdf;
-  // Générer la carte en canvas puis l'intégrer dans le PDF
-  const cardCanvas = renderCarteCanvas(3);
-  const cardDataUrl = cardCanvas.toDataURL('image/png', 1.0);
-  // Format: carte verticale 90×135mm (proche A6)
-  const doc = new jsPDF({unit:'mm', format:[90, 135]});
-  doc.addImage(cardDataUrl, 'PNG', 0, 0, 90, 135);
-  doc.save('carte-alnae-' + rec.jewelCode + '.pdf');
-}
-
-
 
 // ── INIT ──────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function(){
@@ -1062,6 +693,7 @@ document.addEventListener('DOMContentLoaded', function(){
       state.currentOccasion=this.dataset.occasion||'';
       setErr('err-occasion',false);
       g('autre-field').style.display=state.currentOccasion==='Autre'?'block':'none';
+      resetSugAttempts();
       renderSuggestions(state.currentOccasion);
     });
   });
@@ -1077,24 +709,11 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   });
 
-  // Toggle média
-  g('tog-media')?.addEventListener('change',function(){
-    g('body-media')?.classList.toggle('open',this.checked);
-    g('block-media')?.classList.toggle('on',this.checked);
-    if(!this.checked){mediaFiles.length=0;renderMediaPreviews();updateDropZone();}
-  });
-
   // Compteur caractères
   g('message-input')?.addEventListener('input',function(){setText('char-count',String(this.value.length));});
 
-  // Médias
-  const mInput=g('media-file-input'),mZone=g('media-drop-zone');
-  if(mInput){mInput.addEventListener('change',function(){handleMedia(this.files);this.value='';});}
-  if(mZone){
-    mZone.addEventListener('dragover',e=>{e.preventDefault();mZone.classList.add('drag-over');});
-    mZone.addEventListener('dragleave',()=>mZone.classList.remove('drag-over'));
-    mZone.addEventListener('drop',e=>{e.preventDefault();mZone.classList.remove('drag-over');handleMedia(e.dataTransfer.files);});
-  }
+  // Bouton "Générer à nouveau" pour les suggestions
+  g('btn-regen-sug')?.addEventListener('click', regenSuggestions);
 
   // RGPD toggle label
   g('lbl-rgpd-msg')?.addEventListener('click',()=>{const cb=g('rgpd-msg');if(cb)cb.checked=!cb.checked;});
