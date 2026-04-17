@@ -396,7 +396,7 @@ app.post("/admin/send-client-email", async (req, res) => {
       <table style="width:100%;font-size:13px;color:#5A4A2A;line-height:1.9;">
         <tr><td style="width:24px;vertical-align:top;color:#8B6914;font-weight:bold;">1.</td><td>Rendez-vous sur notre espace dédié :<br><a href="${FORM_URL}" style="color:#8B6914;font-weight:bold;">${FORM_URL}</a></td></tr>
         <tr><td style="vertical-align:top;color:#8B6914;font-weight:bold;">2.</td><td>Saisissez votre code confidentiel — le numéro de commande <strong>${orderNumber}</strong> s'affichera automatiquement</td></tr>
-        <tr><td style="vertical-align:top;color:#8B6914;font-weight:bold;">3.</td><td>Composez votre message : texte, photo, audio ou vidéo selon votre envie</td></tr>
+        <tr><td style="vertical-align:top;color:#8B6914;font-weight:bold;">3.</td><td>Composez votre message personnel avec soin, directement dans l'espace dédié — chaque mot compte</td></tr>
         <tr><td style="vertical-align:top;color:#8B6914;font-weight:bold;">4.</td><td>Prévisualisez, puis scellez lorsque vous êtes satisfait(e)</td></tr>
       </table>
     </div>
