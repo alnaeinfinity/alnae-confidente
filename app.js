@@ -749,6 +749,11 @@ app.get("/formulaire", (req, res) => {
   res.sendFile(path.join(__dirname, "alnae-formulaire-client.html"));
 });
 
+// ── ESPACE INTERNE ADMIN ──────────────────────────────────────────
+app.get("/espace-interne", (req, res) => {
+  res.sendFile(path.join(__dirname, "alnae-espace-interne.html"));
+});
+
 // ── PAGE RÉVÉLATION ───────────────────────────────────────────────
 app.get("/", (req, res) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
