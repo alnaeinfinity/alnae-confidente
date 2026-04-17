@@ -387,6 +387,11 @@ header{text-align:center;padding:3rem 2rem 1.5rem;position:relative;z-index:1;}
         <strong style="color:var(--dark);">✦ C'est tout !</strong><br>
         Votre message est transmis. L'équipe ALNAÉ Infinity prépare votre bijou sous 24 à 48h ouvrées et vous contactera pour le suivi d'expédition.
       </div>
+
+      <button class="btn" id="btn-retour-accueil" type="button"
+        style="margin-top:1.2rem;max-width:320px;margin-left:auto;margin-right:auto;">
+        ← Saisir un autre message
+      </button>
     </div>
   </div>
 
@@ -450,11 +455,15 @@ async function fetchEtymIA(prenom){
   const key = (prenom||'').toLowerCase().trim();
   if(state.cachedEtym[key]) return state.cachedEtym[key];
   try {
+    const ctrlE = new AbortController();
+    const tE = setTimeout(() => ctrlE.abort(), 15000);
     const r = await fetch(RENDER_URL + '/generate-etym', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prenom })
+      body: JSON.stringify({ prenom }),
+      signal: ctrlE.signal
     });
+    clearTimeout(tE);
     const d = await r.json();
     if (d.etymologyText) {
       state.cachedEtym[key] = d.etymologyText;
@@ -468,11 +477,15 @@ async function fetchEtymIA(prenom){
 
 async function fetchMotivIA(prenom, occasion, msg){
   try {
+    const ctrlM = new AbortController();
+    const tM = setTimeout(() => ctrlM.abort(), 15000);
     const r = await fetch(RENDER_URL + '/generate-motiv', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prenom, occasion: occasion||'', personalMessage: msg||'' })
+      body: JSON.stringify({ prenom, occasion: occasion||'', personalMessage: msg||'' }),
+      signal: ctrlM.signal
     });
+    clearTimeout(tM);
     const d = await r.json();
     if (d.motivationText) return d.motivationText;
   } catch(_) {}
@@ -482,15 +495,19 @@ async function fetchMotivIA(prenom, occasion, msg){
 
 async function fetchSuggestionsIA(occasion, prenom){
   try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 15000); // 15s — réveille Render
     const r = await fetch(RENDER_URL + '/generate-suggestions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ occasion, prenom: prenom||'' })
+      body: JSON.stringify({ occasion, prenom: prenom||'' }),
+      signal: ctrl.signal
     });
+    clearTimeout(t);
     const d = await r.json();
     if (d.suggestions?.length >= 3) return d.suggestions;
   } catch(_) {}
-  return null; // déclenche le fallback statique dans renderSuggestions
+  return null;
 }
 
 
@@ -569,12 +586,27 @@ async function regenSuggestions(){
     ? (g('autre-text')?.value?.trim()||'Autre')
     : state.currentOccasion;
   const prenom = g('recipient-name')?.value?.trim()||'';
-  state.sugAttempts++;
-  updateRegenBtn();
+
+  // Incrémenter seulement si on obtient un vrai résultat
   const ai = await fetchSuggestionsIA(occasion, prenom);
   if(spinner) spinner.style.display='none';
-  if(ai){ renderFromList(ai, true); }
-  else { updateRegenBtn(); }
+
+  if(ai){
+    state.sugAttempts++;
+    updateRegenBtn();
+    renderFromList(ai, true);
+  } else {
+    // IA indisponible : proposer un fallback alternatif mélangé
+    state.sugAttempts++;
+    updateRegenBtn();
+    const base = SUGGESTIONS[occasion] || [];
+    if(base.length){
+      // Mélanger le fallback pour varier l'affichage
+      const shuffled = [...base].sort(() => Math.random() - 0.5);
+      renderFromList(shuffled, true);
+    }
+    btn.disabled = state.sugAttempts >= MAX_SUG_ATTEMPTS;
+  }
 }
 // ── ÉTAPE 1 : VALIDER LE CODE CLIENT ─────────────────────────────
 g('btn-validate-code')?.addEventListener('click', validateClientCode);
@@ -642,6 +674,46 @@ async function buildPreview(){
 }
 
 function closePreview(){g('preview-overlay').classList.remove('show');}
+
+// ── RETOUR ACCUEIL — réinitialise tout pour un nouveau message ────
+function resetToAccueil(){
+  // Réinitialiser l'état
+  state.clientCode=''; state.orderNumber=''; state.codeIndex=1;
+  state.currentOccasion=''; state.sugAttempts=0;
+  state.preview=null; state.messageRecord=null; state.cachedEtym={};
+
+  // Réinitialiser les champs
+  const fields=['client-code-input','recipient-name','message-input','autre-text'];
+  fields.forEach(id=>{ const el=g(id); if(el)el.value=''; });
+
+  // Réinitialiser les toggles
+  ['tog-occasion','tog-message','tog-etym','tog-motiv'].forEach(id=>{
+    const el=g(id); if(el)el.checked=false;
+  });
+  ['body-occasion','body-message','body-etym','body-motiv'].forEach(id=>{
+    const el=g(id); if(el)el.classList.remove('open');
+  });
+  ['block-occasion','block-message','block-etym','block-motiv'].forEach(id=>{
+    const el=g(id); if(el)el.classList.remove('on');
+  });
+
+  // Réinitialiser les pills
+  document.querySelectorAll('.pill[data-occasion]').forEach(p=>p.classList.remove('active'));
+
+  // Cacher les suggestions
+  const sb=g('suggestions-box'); if(sb)sb.style.display='none';
+  const af=g('autre-field'); if(af)af.style.display='none';
+
+  // Réinitialiser le compteur suggestions
+  const sc=g('sug-counter'); if(sc)sc.textContent='0 / 3';
+  const rr=g('sug-regen-row'); if(rr)rr.style.display='none';
+
+  // Réinitialiser le char count
+  setText('char-count','0');
+
+  // Retourner à la page de saisie du code
+  showPage('page-code');
+}
 g('btn-close-preview')?.addEventListener('click',closePreview);
 g('btn-back-edit')?.addEventListener('click',closePreview);
 g('preview-overlay')?.addEventListener('click',e=>{if(e.target===g('preview-overlay'))closePreview();});
@@ -714,6 +786,9 @@ document.addEventListener('DOMContentLoaded', function(){
 
   // Bouton "Générer à nouveau" pour les suggestions
   g('btn-regen-sug')?.addEventListener('click', regenSuggestions);
+
+  // Bouton retour accueil
+  g('btn-retour-accueil')?.addEventListener('click', resetToAccueil);
 
   // RGPD toggle label
   g('lbl-rgpd-msg')?.addEventListener('click',()=>{const cb=g('rgpd-msg');if(cb)cb.checked=!cb.checked;});
