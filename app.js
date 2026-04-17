@@ -11,6 +11,7 @@ const express = require("express");
 const https   = require("https");
 const http    = require("http");
 const path    = require("path");
+const fs      = require("fs");
 const app     = express();
 const port    = process.env.PORT || 10000;
 
@@ -39,6 +40,33 @@ app.use((req, res, next) => {
 const orders   = new Map();  // orderNumber → order data
 const codes    = new Map();  // clientCode  → code data
 const messages = new Map();  // jewelCode   → message data
+
+// ── PERSISTANCE FICHIER (/tmp) ────────────────────────────────
+// Survit aux redéploiements ; ne survit pas aux redémarrages Render gratuit.
+// Pour une vraie persistence : passer à Render Starter + Disk, ou ajouter Supabase.
+const DATA_PATH = "/tmp/alnae_data.json";
+
+function saveData() {
+  try {
+    fs.writeFileSync(DATA_PATH, JSON.stringify({
+      orders:   [...orders.entries()],
+      codes:    [...codes.entries()],
+      messages: [...messages.entries()]
+    }));
+  } catch(e) { console.error("[SAVE] Erreur :", e.message); }
+}
+
+function loadData() {
+  try {
+    if (!fs.existsSync(DATA_PATH)) return;
+    const raw = JSON.parse(fs.readFileSync(DATA_PATH, "utf8"));
+    (raw.orders   || []).forEach(([k,v]) => orders.set(k, v));
+    (raw.codes    || []).forEach(([k,v]) => codes.set(k, v));
+    (raw.messages || []).forEach(([k,v]) => messages.set(k, v));
+    console.log("[LOAD] Données restaurées — messages:", messages.size,
+      "| orders:", orders.size, "| codes:", codes.size);
+  } catch(e) { console.error("[LOAD] Erreur :", e.message); }
+}
 
 // ── UTILITAIRES ───────────────────────────────────────────────────
 function checkAdmin(req, res) {
@@ -331,6 +359,7 @@ app.post("/admin/create-order", (req, res) => {
     codes.set(normalizeCode(code), { orderNumber, index: i+1, status: "available", jewelCode: null, sealedAt: null });
   });
   console.log("[ADMIN] Commande créée :", orderNumber, "| Codes :", clientCodes.length);
+  saveData();
   return res.json({ ok: true, orderNumber, codesCreated: clientCodes.length });
 });
 
@@ -544,6 +573,7 @@ app.post("/seal-message", async (req, res) => {
   }
 
   console.log("[SEAL]", finalCode, "| Destinataire:", recipientName, "| Commande:", orderNumber);
+  saveData(); // persister immédiatement après scellement
 
   // Email notification admin
   const revealUrl = BASE_URL + "/?code=" + encodeURIComponent(finalCode);
@@ -593,6 +623,12 @@ app.post("/seal-message", async (req, res) => {
           <div style="font-family:monospace;font-size:15px;letter-spacing:3px;color:#1C1408;font-weight:bold;background:white;padding:8px 14px;border:1.5px solid #1C1408;display:inline-block;margin-bottom:14px;">${esc(clientCode||finalCode)}</div>
           <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#8A7A60;margin-bottom:6px;">Lien direct</div>
           <a href="${revealUrl}" style="color:#8B6914;font-size:12px;word-break:break-all;display:block;">${revealUrl}</a>
+          <div style="margin-top:12px;">
+            <a href="${BASE_URL}/admin/print-card?code=${encodeURIComponent(finalCode)}&secret=${ADMIN_SECRET}"
+               style="display:inline-block;background:#1C1408;color:#F0EBE0;padding:8px 16px;font-family:Arial,sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;text-decoration:none;">
+              Imprimer / télécharger la carte
+            </a>
+          </div>
         </div>
       </div>
     </div>
@@ -643,6 +679,73 @@ app.post("/reveal-message", (req, res) => {
   });
 });
 
+// ── ADMIN : PAGE CARTE IMPRIMABLE ────────────────────────────────
+app.get("/admin/print-card", (req, res) => {
+  if (req.query.secret !== ADMIN_SECRET) return res.status(401).send("Non autorisé.");
+  const code = (req.query.code || "").replace(/\s/g,"").toUpperCase();
+  if (!code) return res.status(400).send("Paramètre code manquant.");
+
+  const revealUrl = BASE_URL + "/?code=" + encodeURIComponent(code);
+  const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?data="
+              + encodeURIComponent(revealUrl)
+              + "&size=220x220&color=1C1408&bgcolor=F8F4EE&margin=8";
+
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(`<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8">
+<title>Carte ALNAE — ${code}</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400&family=Raleway:wght@300;400&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#f5f5f5;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;font-family:'Raleway',sans-serif;}
+.carte{width:340px;background:white;border:1.5px solid #1C1408;overflow:hidden;}
+.ct{background:#1C1408;padding:12px 18px;display:flex;align-items:center;justify-content:space-between;}
+.cb{font-size:8px;letter-spacing:4px;text-transform:uppercase;color:#8B6914;}
+.cn{font-family:'Playfair Display',serif;font-size:20px;font-style:italic;color:#F0EBE0;font-weight:400;}
+.cc{padding:16px;display:flex;gap:14px;align-items:center;}
+.cl{flex:1;}
+.ci{font-size:10px;color:#5A4A2A;line-height:1.7;margin-bottom:12px;}
+.ci strong{color:#1C1408;display:block;}
+.ck{font-size:7px;letter-spacing:2px;text-transform:uppercase;color:#8A7A60;margin-bottom:5px;}
+.cv{background:white;color:#1C1408;border:1.5px solid #1C1408;padding:5px 10px;font-family:'Courier New',monospace;font-size:12px;letter-spacing:2px;display:inline-block;font-weight:bold;}
+.cq img{width:110px;height:110px;display:block;border:1px solid #E8E2D4;}
+.cf{border-top:1px solid #E8E2D4;padding:7px 16px;display:flex;justify-content:space-between;}
+.cu{font-size:7px;color:#8A7A60;letter-spacing:1px;}
+.actions{margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+.btn{padding:10px 22px;border:none;font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;font-family:'Raleway',sans-serif;}
+.bp{background:#1C1408;color:white;}
+.bd{background:white;border:1px solid #C8BAA0;color:#5A4A2A;}
+@media print{body{background:white;padding:0;}.actions{display:none;}}
+</style></head>
+<body>
+<div class="carte">
+  <div class="ct">
+    <div><div class="cb">ALNAÉ INFINITY</div><div class="cn">Confidente</div></div>
+    <div style="color:#8B6914;font-size:14px;">◆</div>
+  </div>
+  <div class="cc">
+    <div class="cl">
+      <div class="ci">Scannez le QR code ou rendez-vous sur<br>
+        <strong>alnaeinfinity.com/pages/confidente</strong>
+        et saisissez votre <strong>code confidentiel</strong> pour découvrir votre message.
+      </div>
+      <div class="ck">CODE CONFIDENTIEL</div>
+      <div class="cv">${code}</div>
+    </div>
+    <div class="cq"><img src="${qrUrl}" alt="QR Code"></div>
+  </div>
+  <div class="cf">
+    <span class="cu">www.alnaeinfinity.com</span>
+    <span class="cu">◆ Collection Confidente</span>
+  </div>
+</div>
+<div class="actions">
+  <button class="btn bp" onclick="window.print()">Imprimer la carte</button>
+  <button class="btn bd" onclick="window.close()">Fermer</button>
+</div>
+</body></html>`);
+});
+
 // ── SANTÉ ─────────────────────────────────────────────────────────
 app.get("/health", (req, res) => {
   res.json({
@@ -650,6 +753,7 @@ app.get("/health", (req, res) => {
     orders: orders.size, codes: codes.size, messages: messages.size,
     resend: !!RESEND_API_KEY,
     openai: !!OPENAI_API_KEY,
+    dataFile: fs.existsSync(DATA_PATH) ? "sauvegarde ok" : "pas de sauvegarde",
     uptime: Math.floor(process.uptime()) + "s"
   });
 });
@@ -786,6 +890,8 @@ g('bc')?.addEventListener('click',async function(){
 });
 
 // ── DÉMARRAGE ─────────────────────────────────────────────────────
+loadData(); // ← restaurer les données au démarrage
+
 app.listen(port, () => {
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
   console.log("  ALNAÉ Confidente v3");
