@@ -470,8 +470,11 @@ async function fetchEtymIA(prenom){
       return d.etymologyText;
     }
   } catch(_) {}
-  // Fallback local si le serveur est inaccessible
-  return prenom + ' porte en lui une énergie singulière, celle des êtres qui savent qui ils sont.\n\nPorte-le avec fierté. Il te ressemble.';
+  // Fallback genré si serveur inaccessible
+  const g2 = detectGenre(prenom);
+  if(g2==='masculin') return prenom + ' porte en lui la force tranquille de ceux qui savent qui ils sont.\n\nIl avance avec une clarté rare — celle des hommes qui ne cherchent plus à prouver, mais à créer.\n\nPorte-le. Il te va bien.';
+  if(g2==='feminin')  return prenom + ' porte en lui la grâce de celles qui ont su traverser les tempêtes sans perdre leur lumière.\n\nElle incarne une douceur qui ne capitule pas, une élégance qui vient de l\'intérieur.\n\nPorte-le. Il te ressemble.';
+  return prenom + ' porte en lui quelque chose de rare — une énergie singulière qui appartient à ceux qui osent être vraiment eux-mêmes.\n\nC\'est un prénom qui laisse une trace.\n\nPorte-le. Il te ressemble.';
 }
 
 
@@ -599,12 +602,15 @@ async function regenSuggestions(){
     // IA indisponible : proposer un fallback alternatif mélangé
     state.sugAttempts++;
     updateRegenBtn();
-    const base = SUGGESTIONS[occasion] || [];
-    if(base.length){
-      // Mélanger le fallback pour varier l'affichage
-      const shuffled = [...base].sort(() => Math.random() - 0.5);
-      renderFromList(shuffled, true);
-    }
+    // Fallback varié : on puise dans plusieurs occasions similaires pour ne pas répéter
+    const fallbackPool = [
+      ...(SUGGESTIONS[occasion] || []),
+      ...(SUGGESTIONS['Encouragement'] || []),
+      ...(SUGGESTIONS['Souvenir'] || [])
+    ];
+    const unique = [...new Map(fallbackPool.map(s=>[s,s])).values()];
+    const shuffled = unique.sort(() => Math.random() - 0.5).slice(0,3);
+    if(shuffled.length) renderFromList(shuffled, true);
     btn.disabled = state.sugAttempts >= MAX_SUG_ATTEMPTS;
   }
 }
