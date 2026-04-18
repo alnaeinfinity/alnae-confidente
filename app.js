@@ -188,30 +188,66 @@ function callOpenAI(systemPrompt, userMessage, maxTokens) {
 // Détection genre simple côté serveur
 function detectGenre(prenom) {
   if (!prenom) return "neutre";
+
+  // Liste masculine explicite
   const prenomsMasculins = new Set([
     "aaron","adam","adrien","alexandre","alexis","arnaud","arthur","axel","baptiste",
-    "benjamin","charles","christophe","clement","damien","daniel","david","edouard",
-    "emmanuel","ethan","etienne","felix","florian","francois","gabriel","gabin",
-    "guillaume","hugo","jean","jeremy","jerome","julien","kevin","kylian","laurent",
-    "leon","luca","lucas","leo","loic","louis","luka","mael","marc","martin",
-    "mathieu","mathis","maxime","maxence","mehdi","michael","michel","nathan",
-    "nicolas","noah","noel","nolan","olivier","oscar","paul","philippe","pierre",
-    "raphael","remi","robin","romain","ruben","samuel","sebastien","simon",
-    "stephane","tanguy","theo","thibault","thierry","thomas","timothee","tom",
-    "tristan","ugo","valentin","victor","vincent","william","xavier","yann"
+    "benjamin","charles","christophe","clement","corentin","damien","daniel","david",
+    "edouard","emmanuel","ethan","etienne","felix","florian","francois","gabriel",
+    "gabin","gautier","gilbert","guillaume","hugo","jean","jeremy","jerome","julien",
+    "kevin","kylian","laurent","leon","luca","lucas","leo","loic","louis","luka",
+    "mael","marc","martin","mathieu","mathis","maxime","maxence","mehdi","michael",
+    "michel","nathan","nicolas","noah","noel","nolan","olivier","oscar","paul",
+    "philippe","pierre","raphael","remi","robin","romain","ruben","samuel",
+    "sebastien","simon","stephane","tanguy","theo","thibault","thierry","thomas",
+    "timothee","tom","tristan","ugo","valentin","victor","vincent","william",
+    "xavier","yann","yannick"
   ]);
+
+  // Liste féminine explicite pour les prénoms ambigus ou mal couverts
+  const prenomsFeminins = new Set([
+    "fabienne","corinne","nathalie","stephanie","virginie","audrey","veronique",
+    "florence","laurence","beatrice","sylvie","nadege","jennifer","jennifer",
+    "solene","vivienne","dorothee","genevieve","frederique","dominique","pascale",
+    "michele","danielle","christelle","murielle","gabrielle","isabelle","joelle",
+    "rachelle","noelle","gisele","michele","odette","yvette","lisette","colette",
+    "henriette","claudette","lucette","juliette","annette","pierrette","ninette",
+    "josette","marinette","jeannette","violette","babette","suzette","cosette",
+    "marguerite","brigitte","charlotte","annick","lydie","laetitia","leticia",
+    "leonie","clementine","josephine","delphine","perrine","charline","marjorie",
+    "eloise","heloise","melanie","tiffany","brittany","bethany","courtney",
+    "ashley","kimberly","lindsey","aubrey","casey","kelly","lesley","whitney",
+    "hilary","margot","inès","ines","agnes","gladys","doris","mavis","enid",
+    "gwyneth","siobhan","niamh","maeve","caoimhe","roisin","grainne"
+  ]);
+
   const p = prenom.trim().toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .split(/[\s-]/)[0];
+
   if (prenomsMasculins.has(p)) return "masculin";
-  // Heuristiques
-  const l3=p.slice(-3), l2=p.slice(-2), l1=p.slice(-1);
+  if (prenomsFeminins.has(p))  return "feminin";
+
+  // Heuristiques terminaisons — ordre : du plus spécifique au plus général
+  const l4=p.slice(-4), l3=p.slice(-3), l2=p.slice(-2), l1=p.slice(-1);
+
+  // Terminaisons féminines fréquentes
+  if (["enne","inne","onne","agne"].includes(l4)) return "feminin"; // Fabienne, Corinne
+  if (["lie","nie","rie","vie","fie","gie","tie"].includes(l3)) return "feminin"; // Nathalie, Stéphanie, Sylvie
+  if (["ice","ace","uce"].includes(l3)) return "feminin"; // Béatrice, Grace
+  if (["nce","nse"].includes(l3)) return "feminin"; // Florence, Laurence, Constance
+  if (["que","gue"].includes(l3)) return "feminin"; // Véronique, Monique
+  if (["ney","rey","ley"].includes(l3)) return "feminin"; // Audrey, Courtney, Ashley
   if (["ine","ene","ale","lle","tte","ise","ose","ane","elle"].includes(l3)) return "feminin";
-  if (["ia","ea","na","la","ra","sa"].includes(l2)) return "feminin";
+  if (["ia","ea","na","la","ra","sa","ga","da","fa","ka","ma"].includes(l2)) return "feminin";
   if (l1==="a" && p.length>3) return "feminin";
-  if (["el","en","on","an","in","us"].includes(l2)) return "masculin";
+
+  // Terminaisons masculines
+  if (["ard","ert","aud","aux","eux","oux"].includes(l3)) return "masculin";
+  if (["el","en","on","an","in","us","ix","ex"].includes(l2)) return "masculin";
   if (l1==="o" && p.length>3) return "masculin";
-  return "neutre"; // si incertain → formulation neutre
+
+  return "neutre";
 }
 
 // Textes de secours si l'IA est indisponible
