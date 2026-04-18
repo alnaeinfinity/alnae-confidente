@@ -3,661 +3,1035 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ALNAÉ Confidente — Déposer un message</title>
+<title>ALNAÉ Confidente — Composez votre message</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&family=Raleway:wght@200;300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
-:root{
-  --lin:#F2EDE3;--lin-mid:#EDE8DC;--lin-soft:#E8E2D4;--lin-border:#C8BAA0;
-  --gold:#8B6914;--gold-b:#A07820;--gold-d:#6B5010;
-  --dark:#1C1408;--dark2:#3A2C18;
-  --text:#1C1408;--text-m:#5A4A2A;--text-d:#8A7A60;
-  --err:#C0392B;--ok:#27AE60;
+/* ═══════════════════════════════════════════════════════════
+   ALNAÉ CONFIDENTE — FORMULAIRE CLIENT v4
+   Design luxe noir & or — 100% IA, 0% genre local
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --bg-deep: #0a0a0a;
+  --bg-card: #111111;
+  --bg-input: #141414;
+  --gold: #c9a84c;
+  --gold-dim: #a08939;
+  --gold-glow: #c9a84c22;
+  --text-main: #e8e0d5;
+  --text-mid: #8a7d6b;
+  --text-dim: #5a5347;
+  --border: #c9a84c33;
+  --border-focus: #c9a84c;
+  --error: #e74c3c;
+  --success: #27ae60;
+  --obsidian-soft: #1a1a1a;
+  --obsidian-border: #2a2a2a;
 }
-*{margin:0;padding:0;box-sizing:border-box;}
-html{scroll-behavior:smooth;}
-body{background:var(--lin);color:var(--text);font-family:'Raleway',sans-serif;font-weight:300;min-height:100vh;-webkit-font-smoothing:antialiased;}
-body::before{content:'';position:fixed;top:-30vh;left:50%;transform:translateX(-50%);width:600px;height:400px;background:radial-gradient(ellipse,rgba(139,105,20,.04) 0%,transparent 70%);pointer-events:none;z-index:0;}
-
-header{text-align:center;padding:3rem 2rem 1.5rem;position:relative;z-index:1;}
-.brand-eyebrow{font-size:.6rem;letter-spacing:.5em;text-transform:uppercase;color:var(--gold);margin-bottom:.8rem;display:flex;align-items:center;justify-content:center;gap:1rem;}
-.brand-eyebrow::before,.brand-eyebrow::after{content:'';width:40px;height:1px;background:var(--gold-d);}
-.collection-title{font-family:'Playfair Display',serif;font-size:3.5rem;font-weight:400;font-style:italic;color:var(--dark);line-height:.95;letter-spacing:-.01em;margin-bottom:.4rem;}
-.tagline{font-size:.62rem;letter-spacing:.35em;text-transform:uppercase;color:var(--text-m);}
-
-.container{max-width:580px;margin:0 auto;padding:0 1.2rem 5rem;position:relative;z-index:1;}
-
-/* PAGES */
-.page{display:none;animation:fadeUp .4s ease both;}
-.page.active{display:block;}
-@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
-
-/* STEPS */
-.steps{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-bottom:1.5rem;}
-.step-dot{width:6px;height:6px;border-radius:50%;background:var(--lin-border);transition:all .3s;}
-.step-dot.active{background:var(--gold);width:20px;border-radius:3px;}
-
-/* CARD */
-.card{background:rgba(255,252,248,.9);border:1px solid var(--lin-border);border-radius:1px;padding:2rem 1.8rem;position:relative;overflow:hidden;margin-bottom:.8rem;}
-.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
-.card-title{font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:400;color:var(--dark);margin-bottom:.2rem;}
-.card-subtitle{font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-d);margin-bottom:1.8rem;}
-
-/* FIELDS */
-.field{margin-bottom:1.1rem;}
-.field label{display:block;font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text-m);margin-bottom:.45rem;font-weight:400;}
-.req{color:var(--gold);}
-.field input,.field textarea{width:100%;padding:.8rem 1rem;border:1px solid var(--lin-border);border-radius:1px;background:rgba(255,252,248,.9);font-family:'Raleway',sans-serif;font-size:.88rem;font-weight:300;color:var(--dark);transition:border-color .2s,box-shadow .2s;outline:none;-webkit-appearance:none;}
-.field input::placeholder,.field textarea::placeholder{color:var(--text-d);}
-.field input:focus,.field textarea:focus{border-color:var(--gold-d);box-shadow:0 0 0 3px rgba(139,105,20,.07);}
-.field input.err{border-color:var(--err);}
-.field input[readonly]{background:var(--lin-soft);color:var(--text-d);cursor:default;font-family:monospace;letter-spacing:.05em;}
-.field textarea{resize:vertical;min-height:110px;line-height:1.75;}
-.field-error{font-size:.65rem;color:var(--err);margin-top:.3rem;display:none;}
-.field-error.show{display:block;}
-.char-count{text-align:right;font-size:.62rem;color:var(--text-d);margin-top:.25rem;}
-.field-hint{font-size:.62rem;color:var(--text-d);margin-top:.3rem;line-height:1.5;}
-
-/* CODE CLIENT */
-.code-entry-wrap{text-align:center;padding:1.5rem 0;}
-.code-icon{font-size:2rem;color:var(--gold);margin-bottom:.8rem;}
-.code-input-large{width:100%;padding:1rem 1.2rem;border:1.5px solid var(--lin-border);background:rgba(255,252,248,.95);font-family:monospace;font-size:1.1rem;letter-spacing:.2em;text-align:center;color:var(--dark);outline:none;transition:border-color .2s,box-shadow .2s;text-transform:uppercase;-webkit-appearance:none;}
-.code-input-large:focus{border-color:var(--gold-d);box-shadow:0 0 0 3px rgba(139,105,20,.07);}
-.code-input-large.err{border-color:var(--err);}
-
-/* ORDER BADGE */
-.order-badge{background:var(--dark);color:var(--gold);padding:.5rem 1rem;font-family:monospace;font-size:.9rem;letter-spacing:.15em;display:inline-block;margin:.3rem 0;}
-
-/* PILLS */
-.pill-group{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.7rem;}
-.pill{padding:.3rem .8rem;border:1px solid var(--lin-border);font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-m);cursor:pointer;transition:all .2s;background:transparent;user-select:none;font-family:'Raleway',sans-serif;font-weight:400;}
-.pill:hover{border-color:var(--gold-d);color:var(--gold);}
-.pill.active{background:var(--gold);border-color:var(--gold);color:var(--lin);}
-
-/* OPTION BLOCKS */
-.option-block{border:1px solid var(--lin-border);margin-bottom:.6rem;overflow:hidden;transition:border-color .3s;background:rgba(255,252,248,.85);}
-.option-block.on{border-color:var(--gold-d);box-shadow:0 0 20px rgba(139,105,20,.06);}
-.option-header{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.1rem;user-select:none;}
-.option-left{display:flex;align-items:center;gap:.8rem;}
-.option-icon{font-size:1rem;opacity:.7;}
-.option-title{font-size:.75rem;font-weight:400;color:var(--dark);letter-spacing:.03em;}
-.option-desc{font-size:.62rem;color:var(--text-d);margin-top:.1rem;}
-.option-body{padding:1rem 1.1rem;border-top:1px solid var(--lin-border);display:none;}
-.option-body.open{display:block;}
-
-/* TOGGLE */
-.toggle{position:relative;width:36px;height:20px;flex-shrink:0;}
-.toggle input{opacity:0;width:0;height:0;}
-.slider{position:absolute;inset:0;background:var(--lin-soft);border:1px solid var(--lin-border);border-radius:10px;cursor:pointer;transition:.3s;}
-.slider::before{content:'';position:absolute;width:14px;height:14px;left:2px;top:2px;background:var(--text-d);border-radius:50%;transition:.3s;}
-.toggle input:checked+.slider{background:var(--gold);border-color:var(--gold);}
-.toggle input:checked+.slider::before{background:var(--lin);transform:translateX(16px);}
-
-/* SUGGESTIONS */
-.suggestions-box{background:var(--lin-soft);border:1px solid var(--lin-border);padding:.8rem;margin-top:.6rem;}
-.sug-title{font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-d);margin-bottom:.6rem;font-weight:400;}
-.sug-item{display:flex;align-items:flex-start;gap:.6rem;padding:.4rem 0;border-bottom:1px solid var(--lin-border);cursor:pointer;}
-.sug-item:last-child{border-bottom:none;}
-.sug-item input[type=checkbox]{width:14px;height:14px;min-width:14px;margin-top:3px;accent-color:var(--gold);cursor:pointer;flex-shrink:0;}
-.sug-item span{font-size:.78rem;font-family:'Playfair Display',serif;font-style:italic;color:var(--dark2);line-height:1.5;}
-.sug-regen-row{display:flex;align-items:center;justify-content:space-between;margin-top:.7rem;padding-top:.6rem;border-top:1px solid var(--lin-border);}
-.sug-regen-btn{font-family:'Raleway',sans-serif;font-size:.6rem;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-d);background:none;border:1px solid var(--gold-d);padding:.35rem .85rem;cursor:pointer;transition:all .2s;}
-.sug-regen-btn:hover:not(:disabled){background:var(--gold-d);color:var(--lin);}
-.sug-regen-btn:disabled{opacity:.35;cursor:not-allowed;}
-.sug-counter{font-size:.6rem;color:var(--text-d);letter-spacing:.1em;}
-.sug-spinner{font-size:.65rem;color:var(--gold);display:none;letter-spacing:.05em;font-style:italic;}
-
-/* RGPD */
-.rgpd-box{background:var(--lin-soft);border:1px solid var(--lin-border);padding:.9rem 1.1rem;margin:.9rem 0;font-size:.7rem;line-height:1.7;color:var(--text-m);}
-.rgpd-box strong{color:var(--dark);font-weight:400;}
-.rgpd-row{display:flex;align-items:flex-start;gap:.65rem;margin-top:.7rem;}
-.rgpd-row input[type=checkbox]{width:15px;height:15px;min-width:15px;flex-shrink:0;margin-top:2px;cursor:pointer;accent-color:var(--gold);}
-.rgpd-row span{font-size:.68rem;color:var(--text);line-height:1.5;cursor:pointer;}
-
-/* ALERTS */
-.alert-box{padding:.75rem 1rem;font-size:.72rem;line-height:1.5;margin-bottom:.9rem;display:none;border-left:2px solid;}
-.alert-box.show{display:block;}
-.alert-error{background:rgba(192,57,43,.06);border-color:var(--err);color:var(--err);}
-.alert-success{background:rgba(39,174,96,.06);border-color:var(--ok);color:var(--ok);}
-
-/* INFO ROW */
-.info-row{display:flex;gap:.6rem;align-items:flex-start;font-size:.68rem;color:var(--text-m);margin-bottom:1rem;}
-.info-row.tip{background:rgba(139,105,20,.04);border:1px solid rgba(139,105,20,.12);padding:.65rem .9rem;}
-
-/* BUTTONS */
-.btn{display:block;width:100%;padding:1rem;background:transparent;color:var(--dark);border:1px solid var(--lin-border);font-family:'Raleway',sans-serif;font-size:.6rem;font-weight:500;letter-spacing:.3em;text-transform:uppercase;cursor:pointer;transition:all .3s;margin-top:.9rem;}
-.btn:hover{border-color:var(--text-m);}
-.btn:disabled{opacity:.4;cursor:not-allowed;}
-.btn-primary{background:var(--dark);color:var(--lin);border-color:var(--dark);}
-.btn-primary:hover:not(:disabled){background:#2A2010;}
-.btn-gold{background:var(--gold);color:var(--lin);border-color:var(--gold);}
-.btn-gold:hover:not(:disabled){background:var(--gold-b);}
-
-/* PIN */
-
-
-/* MÉDIAS */
-
-
-/* PREVIEW OVERLAY */
-.preview-overlay{display:none;position:fixed;inset:0;background:rgba(28,20,8,.72);z-index:1000;overflow-y:auto;padding:2rem 1rem;backdrop-filter:blur(4px);}
-.preview-overlay.show{display:flex;align-items:flex-start;justify-content:center;}
-.preview-inner{background:rgba(255,252,248,.98);border:1px solid var(--lin-border);max-width:520px;width:100%;position:relative;margin:auto;}
-.preview-inner::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);}
-.preview-header{background:var(--dark);padding:.9rem 1.3rem;display:flex;align-items:center;justify-content:space-between;}
-.preview-header span{font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);}
-.preview-close{background:none;border:none;color:rgba(240,235,224,.7);font-size:1rem;cursor:pointer;padding:.2rem .4rem;}
-.preview-body{padding:1.8rem 1.4rem;}
-.preview-warning{background:rgba(139,105,20,.05);border:1px solid rgba(139,105,20,.15);padding:.7rem .9rem;margin-bottom:1.3rem;font-size:.68rem;color:var(--text-m);line-height:1.5;}
-
-/* REVEAL CONTENT */
-.reveal-center{text-align:center;}
-.jewel-icon{font-size:2.4rem;display:block;text-align:center;margin-bottom:.9rem;animation:pulse 4s ease-in-out infinite;}
-@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
-.occasion-badge{display:inline-block;padding:.25rem .9rem;border:1px solid var(--gold-d);font-size:.58rem;letter-spacing:.25em;text-transform:uppercase;color:var(--gold);margin-bottom:1.1rem;}
-.recipient-name{font-family:'Playfair Display',serif;font-size:2.1rem;font-weight:400;font-style:italic;color:var(--dark);text-align:center;margin-bottom:.2rem;}
-.diamond-sep{display:flex;align-items:center;justify-content:center;gap:.7rem;padding:1rem 0;}
-.diamond-sep::before,.diamond-sep::after{content:'';width:60px;height:1px;background:var(--lin-border);}
-.diamond-sep span{width:4px;height:4px;background:var(--gold);transform:rotate(45deg);display:block;}
-.etym-block{border-left:1px solid var(--gold-d);padding:.8rem 1rem;margin:1rem 0;text-align:left;background:rgba(139,105,20,.03);}
-.etym-label{font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-d);margin-bottom:.3rem;}
-.etym-block p{font-family:'Playfair Display',serif;font-size:.95rem;font-style:italic;color:var(--dark2);line-height:1.8;white-space:pre-wrap;}
-.msg-block{background:var(--lin-soft);border:1px solid var(--lin-border);padding:1.4rem;margin:1rem 0;text-align:left;}
-.msg-block p{font-family:'Playfair Display',serif;font-size:1.05rem;line-height:1.9;color:var(--dark);white-space:pre-wrap;}
-.motiv-block{border:1px solid var(--gold-d);padding:.9rem 1.3rem;margin:1rem 0;text-align:center;background:rgba(139,105,20,.03);}
-.motiv-block p{font-family:'Playfair Display',serif;font-size:.9rem;font-style:italic;color:var(--gold);line-height:1.8;white-space:pre-wrap;}
-.from-line{font-size:.65rem;letter-spacing:.12em;color:var(--text-d);margin-top:.8rem;font-style:italic;text-align:center;}
-.alnae-footer{font-size:.58rem;letter-spacing:.18em;color:var(--text-d);text-transform:uppercase;text-align:center;margin-top:.5rem;}
-.alnae-footer a{color:var(--gold-d);text-decoration:none;}
-.badge-new{display:inline-block;background:var(--gold);color:var(--lin);font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;padding:.15rem .45rem;margin-left:.4rem;vertical-align:middle;font-weight:500;}
-
-/* SUCCESS */
-.success-icon{width:52px;height:52px;border:1px solid var(--gold-d);display:flex;align-items:center;justify-content:center;margin:0 auto 1.3rem;font-size:1.2rem;color:var(--gold);font-family:'Playfair Display',serif;font-style:italic;}
-
-/* SPINNER */
-.spinner-wrap{text-align:center;padding:.9rem;display:none;}
-.spinner-wrap.show{display:block;}
-.spinner{width:24px;height:24px;border:1px solid var(--lin-border);border-top-color:var(--gold);border-radius:50%;animation:spin .9s linear infinite;margin:0 auto .5rem;}
-@keyframes spin{to{transform:rotate(360deg)}}
-.spinner-text{font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--text-d);}
-
-
-/* CONFETTI */
-.confetti-wrap{position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden;}
-.cp{position:absolute;top:-10px;animation:fall linear forwards;opacity:0;}
-@keyframes fall{0%{opacity:1;transform:translateY(0) rotate(0)}100%{opacity:0;transform:translateY(100vh) rotate(720deg)}}
-
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg-deep);
+  color: var(--text-main);
+  font-family: 'Raleway', sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+.page { display:none; min-height:100vh; padding:20px; }
+.page.active { display:block; }
+.container { max-width:560px; margin:0 auto; }
+.alnae-header {
+  text-align:center;
+  padding:30px 0;
+  border-bottom:1px solid var(--border);
+  margin-bottom:30px;
+}
+.alnae-header h1 {
+  font-family:'Playfair Display',serif;
+  font-size:24px;
+  color:var(--gold);
+  letter-spacing:4px;
+  font-weight:400;
+}
+.alnae-header .sub {
+  font-size:10px;
+  color:var(--text-mid);
+  letter-spacing:3px;
+  margin-top:4px;
+}
+.alnae-footer {
+  text-align:center;
+  padding:30px 0;
+  margin-top:40px;
+  border-top:1px solid var(--border);
+  font-size:11px;
+  color:var(--text-dim);
+}
+.alnae-footer a { color:var(--gold-dim); text-decoration:none; }
+h2 {
+  font-family:'Playfair Display',serif;
+  font-size:18px;
+  color:var(--gold);
+  font-weight:400;
+  margin-bottom:20px;
+  text-align:center;
+}
+h3 {
+  font-family:'Playfair Display',serif;
+  font-size:15px;
+  color:var(--gold);
+  font-weight:400;
+  margin-bottom:12px;
+}
+label {
+  display:block;
+  font-size:10px;
+  color:var(--text-mid);
+  letter-spacing:2px;
+  text-transform:uppercase;
+  margin-bottom:6px;
+}
+input[type="text"], input[type="password"], input[type="email"], textarea, select {
+  width:100%;
+  padding:12px 14px;
+  background:var(--bg-input);
+  border:1px solid var(--border);
+  color:var(--text-main);
+  font-family:'Raleway',sans-serif;
+  font-size:14px;
+  outline:none;
+  transition:border-color .2s;
+  margin-bottom:16px;
+}
+input:focus, textarea:focus, select:focus { border-color:var(--border-focus); }
+textarea { resize:vertical; min-height:120px; line-height:1.7; }
+select { cursor:pointer; appearance:none; }
+.btn {
+  display:inline-block;
+  padding:13px 36px;
+  background:var(--gold);
+  color:var(--bg-deep);
+  border:none;
+  font-size:11px;
+  letter-spacing:2px;
+  font-weight:600;
+  font-family:'Raleway',sans-serif;
+  cursor:pointer;
+  transition:opacity .2s;
+  text-transform:uppercase;
+}
+.btn:hover { opacity:.85; }
+.btn:disabled { opacity:.4; cursor:default; }
+.btn-outline {
+  display:inline-block;
+  padding:10px 24px;
+  background:transparent;
+  border:1px solid var(--border);
+  color:var(--gold);
+  font-size:11px;
+  letter-spacing:2px;
+  font-family:'Raleway',sans-serif;
+  cursor:pointer;
+  transition:background .2s;
+}
+.btn-outline:hover { background:var(--gold-glow); }
+.error-msg { color:var(--error); font-size:12px; margin-bottom:10px; min-height:16px; }
+.success-msg { color:var(--success); font-size:12px; margin-bottom:10px; }
+.section {
+  background:var(--bg-card);
+  border:1px solid var(--obsidian-border);
+  padding:24px;
+  margin-bottom:24px;
+}
+.ia-block {
+  background:var(--obsidian-soft);
+  border:1px solid var(--obsidian-border);
+  padding:20px;
+  margin:16px 0;
+}
+.ia-text {
+  font-family:'Playfair Display',serif;
+  font-style:italic;
+  font-size:14px;
+  line-height:1.8;
+  color:var(--text-main);
+  white-space:pre-wrap;
+  opacity:.9;
+}
+.ia-label {
+  font-size:9px;
+  color:var(--text-dim);
+  letter-spacing:2px;
+  text-transform:uppercase;
+  margin-bottom:8px;
+}
+.ia-btn {
+  display:inline-block;
+  padding:8px 20px;
+  background:transparent;
+  border:1px solid var(--gold-dim);
+  color:var(--gold);
+  font-size:10px;
+  letter-spacing:1.5px;
+  cursor:pointer;
+  font-family:'Raleway',sans-serif;
+  transition:all .2s;
+  margin-top:10px;
+}
+.ia-btn:hover { background:var(--gold-glow); }
+.ia-btn:disabled { opacity:.4; cursor:default; }
+.chip-group { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+.chip {
+  padding:8px 16px;
+  border:1px solid var(--border);
+  color:var(--text-mid);
+  font-size:12px;
+  cursor:pointer;
+  transition:all .2s;
+  background:transparent;
+}
+.chip.selected { border-color:var(--gold); color:var(--gold); background:var(--gold-glow); }
+.chip:hover { border-color:var(--gold-dim); color:var(--text-main); }
+.suggestion-card {
+  background:var(--obsidian-soft);
+  border:1px solid var(--obsidian-border);
+  padding:16px;
+  margin:8px 0;
+  cursor:pointer;
+  transition:border-color .2s;
+  font-size:13px;
+  line-height:1.7;
+  color:var(--text-main);
+}
+.suggestion-card:hover { border-color:var(--gold-dim); }
+.media-zone {
+  border:2px dashed var(--border);
+  padding:30px;
+  text-align:center;
+  cursor:pointer;
+  transition:border-color .2s;
+}
+.media-zone:hover { border-color:var(--gold-dim); }
+.media-preview { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
+.media-item {
+  position:relative;
+  width:80px; height:80px;
+  border:1px solid var(--obsidian-border);
+  overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--obsidian-soft);
+}
+.media-item img { width:100%; height:100%; object-fit:cover; }
+.media-item .remove {
+  position:absolute; top:2px; right:2px;
+  width:18px; height:18px;
+  background:var(--bg-deep);
+  color:var(--error);
+  border:none;
+  font-size:12px;
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:50%;
+}
+.overlay {
+  display:none;
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  background:rgba(0,0,0,.92);
+  z-index:1000;
+  overflow-y:auto;
+  padding:20px;
+}
+.overlay.show { display:block; }
+.overlay-inner { max-width:560px; margin:0 auto; padding:20px 0; }
+.print-card {
+  background:#fff;
+  color:#111;
+  padding:30px;
+  max-width:400px;
+  margin:20px auto;
+  text-align:center;
+  font-family:'Playfair Display',serif;
+}
+.print-card .pc-logo { font-size:16px; letter-spacing:3px; color:#c9a84c; margin-bottom:4px; }
+.print-card .pc-sub { font-size:9px; letter-spacing:2px; color:#999; margin-bottom:20px; }
+.print-card .pc-code { font-family:monospace; font-size:14px; letter-spacing:2px; color:#333; margin:10px 0; }
+.print-card .pc-pin { font-size:12px; color:#666; margin:10px 0; }
+.print-card .pc-qr { margin:16px auto; }
+.loading-dots::after {
+  content:'';
+  animation: dots 1.2s steps(4,end) infinite;
+}
+@keyframes dots {
+  0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}
+}
+.confetti-container {
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  pointer-events:none; z-index:9999; overflow:hidden;
+}
+.confetti-piece {
+  position:absolute; top:-10px;
+  width:8px; height:8px;
+  animation: confettiFall 3s ease-out forwards;
+}
+@keyframes confettiFall {
+  0% { transform:translateY(0) rotate(0deg); opacity:1; }
+  100% { transform:translateY(100vh) rotate(720deg); opacity:0; }
+}
+/* Responsive */
 @media(max-width:480px){
-  .collection-title{font-size:2.6rem;}
-  .card{padding:1.6rem 1.2rem;}
+  .container{padding:0 4px}
+  .section{padding:16px}
+  .btn{width:100%;text-align:center}
 }
 </style>
 </head>
 <body>
 
-<div class="confetti-wrap" id="confetti"></div>
-
-<!-- APERÇU OVERLAY -->
-<div class="preview-overlay" id="preview-overlay">
-  <div class="preview-inner">
-    <div class="preview-header">
-      <span>Aperçu — Message Confidente</span>
-      <button class="preview-close" id="btn-close-preview" type="button">✕</button>
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 1 — SAISIE DU CODE
+     ═══════════════════════════════════════════════════════════ -->
+<div id="page-code" class="page active">
+  <div class="container">
+    <div class="alnae-header">
+      <h1>ALNAÉ</h1>
+      <div class="sub">COLLECTION CONFIDENTE</div>
     </div>
-    <div class="preview-body">
-      <div class="preview-warning">Voici exactement ce que verra le destinataire. Vérifiez avant de sceller.</div>
-      <div class="reveal-center">
-        <span class="jewel-icon">◆</span>
-        <div id="prev-occ-wrap" style="display:none"><div class="occasion-badge" id="prev-occasion"></div></div>
-        <p class="recipient-name" id="prev-name"></p>
-        <div class="diamond-sep"><span></span></div>
-        <div class="spinner-wrap" id="prev-loading"><div class="spinner"></div><div class="spinner-text">Préparation…</div></div>
-        <div class="etym-block" id="prev-etym" style="display:none"><div class="etym-label">Essence du prénom</div><p id="prev-etym-text"></p></div>
-        <div class="msg-block" id="prev-msg-block" style="display:none"><p id="prev-message"></p></div>
-        <div class="motiv-block" id="prev-motiv-block" style="display:none"><p id="prev-motiv-text"></p></div>
-        <p class="from-line" id="prev-from"></p>
-        <div class="diamond-sep"><span></span></div>
-        <div class="alnae-footer">ALNAÉ Infinity — Collection Confidente<br><a href="https://www.alnaeinfinity.com" target="_blank">www.alnaeinfinity.com</a></div>
-      </div>
-      <button class="btn btn-gold" id="btn-confirm-seal" type="button" style="margin-top:1.3rem;">✦ Confirmer et sceller</button>
-      <button class="btn" id="btn-back-edit" type="button" style="margin-top:.5rem;">← Modifier</button>
+    <div class="section" style="text-align:center;">
+      <h2>Composez votre message</h2>
+      <p style="color:var(--text-mid);font-size:13px;margin-bottom:24px;">
+        Entrez le code confidentiel reçu par email pour accéder à votre espace de composition.
+      </p>
+      <input type="text" id="input-code" placeholder="CL-XXXXXXXX" maxlength="20" autocomplete="off"
+             style="text-align:center;font-family:monospace;font-size:18px;letter-spacing:3px;">
+      <div id="code-error" class="error-msg"></div>
+      <button class="btn" id="btn-validate-code" onclick="validateCode()">ACCÉDER</button>
+    </div>
+    <div class="alnae-footer">
+      ALNAÉ Infinity — Collection Confidente<br>
+      <a href="https://www.alnaeinfinity.com" target="_blank">www.alnaeinfinity.com</a>
     </div>
   </div>
 </div>
 
-<header>
-  <div class="brand-eyebrow">ALNAÉ Infinity</div>
-  <h1 class="collection-title">Confidente</h1>
-  <p class="tagline">Le bijou qui porte votre voix</p>
-</header>
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 2 — COMPOSITION DU MESSAGE
+     ═══════════════════════════════════════════════════════════ -->
+<div id="page-compose" class="page">
+  <div class="container">
+    <div class="alnae-header">
+      <h1>ALNAÉ</h1>
+      <div class="sub">COLLECTION CONFIDENTE</div>
+    </div>
 
-<div class="container">
-
-  <!-- PAGE : SAISIR LE CODE CLIENT -->
-  <div class="page active" id="page-code">
-    <div class="card" style="text-align:center;">
-      <div class="code-entry-wrap">
-        <div class="code-icon">◆</div>
-        <h2 class="card-title" style="text-align:center;margin-bottom:.4rem;">Bienvenue</h2>
-        <p style="font-size:.75rem;color:var(--text-m);line-height:1.7;margin-bottom:1.5rem;">Saisissez le code unique reçu dans l'email ALNAÉ Infinity pour accéder à votre formulaire personnalisé.</p>
-        <div class="alert-box alert-error" id="err-code-box"></div>
-        <div class="field" style="text-align:left;">
-          <label>Votre code unique <span class="req">*</span></label>
-          <input class="code-input-large" type="text" id="client-code-input" placeholder="ex. CL-PWFNBRBH" autocomplete="off" oninput="this.value=this.value.replace(/\s/g,'').toUpperCase()">
-          <div class="field-hint" style="text-align:left;">Ce code vous a été communiqué par email. Majuscules, minuscules et espaces sont acceptés.</div>
-        </div>
-        <button class="btn btn-primary" id="btn-validate-code" type="button" style="max-width:300px;margin:0 auto;">Accéder à mon formulaire →</button>
+    <!-- Info commande -->
+    <div class="section" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <div>
+        <label>Commande</label>
+        <span id="display-order" style="font-family:monospace;color:var(--gold);font-size:13px;"></span>
       </div>
+      <div>
+        <label>Code</label>
+        <span id="display-code" style="font-family:monospace;color:var(--text-mid);font-size:13px;"></span>
+      </div>
+    </div>
+
+    <!-- Section 1 : Destinataire -->
+    <div class="section">
+      <h3>Destinataire</h3>
+      <label>Prénom du destinataire</label>
+      <input type="text" id="input-recipient" placeholder="Le prénom de la personne qui recevra le bijou" maxlength="50">
+    </div>
+
+    <!-- Section 2 : Occasion -->
+    <div class="section">
+      <h3>Occasion</h3>
+      <div class="chip-group" id="occasion-chips"></div>
+    </div>
+
+    <!-- Section 3 : Étymologie IA -->
+    <div class="section" id="section-etym" style="display:none;">
+      <h3>L'essence du prénom</h3>
+      <p style="color:var(--text-mid);font-size:12px;margin-bottom:12px;">
+        Notre IA compose un texte poétique sur l'origine et la beauté du prénom.
+      </p>
+      <button class="ia-btn" id="btn-etym" onclick="fetchEtym()">GÉNÉRER L'ÉTYMOLOGIE</button>
+      <div id="etym-result" class="ia-block" style="display:none;">
+        <div class="ia-label">Étymologie par IA ALNAÉ</div>
+        <div class="ia-text" id="etym-text"></div>
+        <div style="margin-top:12px;display:flex;gap:8px;">
+          <button class="ia-btn" onclick="fetchEtym()">RÉGÉNÉRER</button>
+          <button class="ia-btn" id="btn-etym-use" onclick="toggleEtym()" style="border-color:var(--success);color:var(--success);">INCLURE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 4 : Message personnel -->
+    <div class="section">
+      <h3>Votre message</h3>
+      <label>Le message que vous souhaitez graver</label>
+      <textarea id="input-message" placeholder="Écrivez ici le message qui accompagnera le bijou..."></textarea>
+      <div id="suggestions-zone" style="display:none;">
+        <p style="color:var(--text-mid);font-size:11px;margin-bottom:8px;letter-spacing:1px;">SUGGESTIONS IA</p>
+        <div id="suggestions-list"></div>
+      </div>
+      <button class="ia-btn" id="btn-suggest" onclick="fetchSuggestions()" style="display:none;">INSPIRER MON MESSAGE</button>
+    </div>
+
+    <!-- Section 5 : Citation ALNAÉ -->
+    <div class="section">
+      <h3>Citation ALNAÉ</h3>
+      <p style="color:var(--text-mid);font-size:12px;margin-bottom:12px;">
+        Une citation personnalisée accompagnera votre message.
+      </p>
+      <button class="ia-btn" id="btn-motiv" onclick="fetchMotiv()">GÉNÉRER LA CITATION</button>
+      <div id="motiv-result" class="ia-block" style="display:none;">
+        <div class="ia-label">Citation ALNAÉ</div>
+        <div class="ia-text" id="motiv-text"></div>
+        <div style="margin-top:12px;display:flex;gap:8px;">
+          <button class="ia-btn" onclick="fetchMotiv()">RÉGÉNÉRER</button>
+          <button class="ia-btn" id="btn-motiv-use" onclick="toggleMotiv()" style="border-color:var(--success);color:var(--success);">INCLURE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 6 : Médias -->
+    <div class="section">
+      <h3>Médias (optionnel)</h3>
+      <p style="color:var(--text-mid);font-size:12px;margin-bottom:12px;">
+        Ajoutez jusqu'à 3 fichiers (photo, audio, vidéo — max 20 Mo chacun).
+      </p>
+      <div class="media-zone" id="media-drop" onclick="document.getElementById('media-input').click()">
+        <p style="color:var(--text-mid);font-size:12px;">Cliquez ou glissez vos fichiers ici</p>
+        <input type="file" id="media-input" accept="image/*,audio/*,video/*" multiple style="display:none" onchange="handleMediaFiles(this.files)">
+      </div>
+      <div class="media-preview" id="media-preview"></div>
+    </div>
+
+    <!-- Section 7 : Signature -->
+    <div class="section">
+      <h3>Signature</h3>
+      <label>De la part de...</label>
+      <input type="text" id="input-sender" placeholder="Ex: Avec tout mon amour, Maman" maxlength="100">
+    </div>
+
+    <!-- Section 8 : Code PIN -->
+    <div class="section">
+      <h3>Code confidentiel</h3>
+      <p style="color:var(--text-mid);font-size:12px;margin-bottom:12px;">
+        Choisissez un code à 4 chiffres. Il sera inscrit sur la carte jointe au bijou pour que le destinataire puisse révéler le message.
+      </p>
+      <label>Code PIN (4 chiffres)</label>
+      <input type="password" id="input-pin" inputmode="numeric" maxlength="4" placeholder="••••"
+             style="text-align:center;font-size:20px;letter-spacing:6px;max-width:200px;">
+      <label>Confirmer le code PIN</label>
+      <input type="password" id="input-pin2" inputmode="numeric" maxlength="4" placeholder="••••"
+             style="text-align:center;font-size:20px;letter-spacing:6px;max-width:200px;">
+    </div>
+
+    <!-- Bouton prévisualiser -->
+    <div style="text-align:center;margin:30px 0;">
+      <div id="compose-error" class="error-msg"></div>
+      <button class="btn" id="btn-preview" onclick="buildPreview()">PRÉVISUALISER LE MESSAGE</button>
+    </div>
+
+    <div class="alnae-footer">
+      Votre message sera associé au bijou et révélé uniquement après vérification du code confidentiel.
+      Il sera traité par ALNAÉ Infinity dans les 24 à 48h ouvrées.
+      Contact : contact@alnaeinfinity.com
     </div>
   </div>
-
-  <!-- PAGE : COMPOSITION DU MESSAGE -->
-  <div class="page" id="page-form">
-    <div class="steps"><div class="step-dot active"></div><div class="step-dot"></div></div>
-
-    <div class="card">
-      <h2 class="card-title">Composition du message</h2>
-      <p class="card-subtitle">Étape 2 — Activez les modules souhaités</p>
-      <div class="info-row tip"><span>◈</span><span>Seul le prénom du destinataire est obligatoire. Activez les modules de votre choix.</span></div>
-      <div style="display:flex;align-items:center;gap:.6rem;padding:.6rem .9rem;background:rgba(139,105,20,.04);border:1px solid rgba(139,105,20,.12);font-size:.68rem;color:var(--text-m);">
-        <span>◈</span><span>Commande <strong id="form-order-display" style="font-family:monospace;color:var(--dark);"></strong> — Code <strong id="form-code-display" style="font-family:monospace;color:var(--gold);"></strong></span>
-      </div>
-    </div>
-
-    <!-- Destinataire -->
-    <div class="option-block on" style="border-color:var(--gold-d);">
-      <div class="option-header">
-        <div class="option-left"><span class="option-icon">◈</span>
-          <div><div class="option-title">Destinataire <span class="req">*</span></div><div class="option-desc">Prénom de la personne qui reçoit le bijou</div></div>
-        </div>
-      </div>
-      <div class="option-body open">
-        <div class="field" style="margin:0;">
-          <input type="text" id="recipient-name" placeholder="ex. Sophie, Alexandre, Emma…">
-          <div class="field-error" id="err-recipient">Obligatoire</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Occasion -->
-    <div class="option-block" id="block-occasion">
-      <div class="option-header">
-        <div class="option-left"><span class="option-icon">◇</span>
-          <div><div class="option-title">L'occasion</div><div class="option-desc">Anniversaire, diplôme, Noël… avec suggestions</div></div>
-        </div>
-        <label class="toggle"><input type="checkbox" id="tog-occasion"><span class="slider"></span></label>
-      </div>
-      <div class="option-body" id="body-occasion">
-        <div class="pill-group">
-          <div class="pill" data-occasion="Anniversaire">Anniversaire</div>
-          <div class="pill" data-occasion="Amour">Amour</div>
-          <div class="pill" data-occasion="Amitié">Amitié</div>
-          <div class="pill" data-occasion="Mariage">Mariage</div>
-          <div class="pill" data-occasion="Diplôme">Diplôme</div>
-          <div class="pill" data-occasion="Fête des mères">Fête des mères</div>
-          <div class="pill" data-occasion="Encouragement">Encouragement</div>
-          <div class="pill" data-occasion="Souvenir">Souvenir</div>
-          <div class="pill" data-occasion="Noël">Noël</div>
-          <div class="pill" data-occasion="Autre">Autre</div>
-        </div>
-        <div class="field-error" id="err-occasion">Choisissez une occasion ou désactivez ce module</div>
-        <div class="field" id="autre-field" style="display:none;">
-          <label>Précisez</label>
-          <input type="text" id="autre-text" placeholder="ex. Mariage, Naissance, Retraite…">
-        </div>
-        <div class="suggestions-box" id="suggestions-box" style="display:none;">
-          <div class="sug-title">✦ Suggestions — cochez celle(s) qui vous inspirent</div>
-          <div id="suggestions-list"></div>
-          <div class="sug-regen-row" id="sug-regen-row" style="display:none;">
-            <button class="sug-regen-btn" id="btn-prev-sug" type="button" style="display:none;">← Précédent</button>
-            <span class="sug-counter" id="sug-counter"></span>
-            <span class="sug-spinner" id="sug-spinner" style="display:none;">✦ génération…</span>
-            <button class="sug-regen-btn" id="btn-regen-sug" type="button">✦ Autres suggestions</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Message personnel -->
-    <div class="option-block" id="block-message">
-      <div class="option-header">
-        <div class="option-left"><span class="option-icon">✦</span>
-          <div><div class="option-title">Message personnel</div><div class="option-desc">Vos propres mots, librement</div></div>
-        </div>
-        <label class="toggle"><input type="checkbox" id="tog-message"><span class="slider"></span></label>
-      </div>
-      <div class="option-body" id="body-message">
-        <div class="field" style="margin:0;">
-          <textarea id="message-input" placeholder="Écrivez ici ce que vous souhaitez transmettre…" maxlength="600"></textarea>
-          <div class="char-count"><span id="char-count">0</span> / 600</div>
-          <div class="field-error" id="err-message">Le message est vide</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Étymologie IA -->
-    <div class="option-block" id="block-etym">
-      <div class="option-header">
-        <div class="option-left"><span class="option-icon">◉</span>
-          <div><div class="option-title">Essence du prénom <span class="badge-new">IA</span></div><div class="option-desc">Origine et signification du prénom</div></div>
-        </div>
-        <label class="toggle"><input type="checkbox" id="tog-etym"><span class="slider"></span></label>
-      </div>
-      <div class="option-body" id="body-etym">
-        <p style="font-size:.72rem;color:var(--text-m);line-height:1.7;">Générée par intelligence artificielle à partir du prénom du destinataire.</p>
-      </div>
-    </div>
-
-    <!-- Citation ALNAÉ -->
-    <div class="option-block" id="block-motiv">
-      <div class="option-header">
-        <div class="option-left"><span class="option-icon">◌</span>
-          <div><div class="option-title">Citation ALNAÉ Infinity</div><div class="option-desc">Une pensée inspirante, accordée au genre</div></div>
-        </div>
-        <label class="toggle"><input type="checkbox" id="tog-motiv"><span class="slider"></span></label>
-      </div>
-      <div class="option-body" id="body-motiv">
-        <p style="font-size:.72rem;color:var(--text-m);line-height:1.7;font-style:italic;">Générée par IA selon le contexte. Se conclut par : « N'oublie pas qui tu es. »</p>
-      </div>
-    </div>
-
-
-    <!-- RGPD + bouton -->
-    <div class="card" style="margin-top:.3rem;">
-      <div class="alert-box alert-error" id="form-error">Activez au moins un module en plus du prénom.</div>
-      <div class="rgpd-box">
-        <strong>Consentement au stockage du message</strong><br>
-        Votre message sera associé au bijou et révélé uniquement après vérification du code confidentiel. Il sera traité par ALNAÉ Infinity dans les 24 à 48h ouvrées. Contact : contact@alnaeinfinity.com
-        <div class="rgpd-row"><input type="checkbox" id="rgpd-msg"><span id="lbl-rgpd-msg">Je consens au stockage sécurisé de mon message.</span></div>
-        <div class="field-error" id="err-rgpd-msg">Consentement requis</div>
-      </div>
-      <button class="btn btn-gold" id="btn-preview" type="button">👁 Prévisualiser mon message</button>
-    </div>
-  </div>
-
-  <!-- PAGE : SUCCÈS -->
-  <div class="page" id="page-success">
-    <div class="steps"><div class="step-dot"></div><div class="step-dot active"></div></div>
-    <div class="card" style="text-align:center;">
-      <div class="success-icon">✦</div>
-      <h2 class="card-title" style="text-align:center;">Message scellé !</h2>
-      <div class="alert-box alert-success show" id="success-msg">Votre message a été transmis à l'équipe ALNAÉ Infinity. Nous préparons votre bijou avec soin sous 24 à 48h ouvrées.</div>
-
-
-
-     <div style="margin-top:1.5rem;padding:1rem;background:rgba(139,105,20,.04);border:1px solid rgba(139,105,20,.15);font-size:.7rem;color:var(--text-m);line-height:1.7;text-align:left;">
-        <strong style="color:var(--dark);">✦ C'est tout !</strong><br>
-        Votre message est transmis. L'équipe ALNAÉ Infinity prépare votre bijou sous 24 à 48h ouvrées et vous contactera pour le suivi d'expédition.
-      </div>
-
-      <button class="btn" id="btn-retour-accueil" type="button"
-        style="margin-top:1.2rem;max-width:320px;margin-left:auto;margin-right:auto;">
-        ← Saisir un autre message
-      </button>
-    </div>
-  </div>
-
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════
+     OVERLAY — PRÉVISUALISATION
+     ═══════════════════════════════════════════════════════════ -->
+<div id="preview-overlay" class="overlay">
+  <div class="overlay-inner">
+    <h2>Prévisualisation</h2>
+    <p style="color:var(--text-mid);font-size:12px;text-align:center;margin-bottom:20px;">
+      Vérifiez votre message avant de le sceller définitivement.
+    </p>
+
+    <div class="section">
+      <div id="prev-recipient" style="font-family:'Playfair Display',serif;font-size:18px;color:var(--gold);margin-bottom:16px;"></div>
+
+      <div id="prev-etym-block" style="display:none;margin-bottom:16px;">
+        <div class="ia-label">L'essence du prénom</div>
+        <div class="ia-text" id="prev-etym-text"></div>
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <div class="ia-label">Message personnel</div>
+        <div id="prev-message" style="white-space:pre-wrap;line-height:1.8;"></div>
+      </div>
+
+      <div id="prev-motiv-block" style="display:none;margin-bottom:16px;">
+        <div class="ia-label">Citation ALNAÉ</div>
+        <div class="ia-text" id="prev-motiv-text"></div>
+      </div>
+
+      <div id="prev-media-block" style="display:none;margin-top:16px;">
+        <div class="ia-label">Médias joints</div>
+        <div id="prev-media-content"></div>
+      </div>
+
+      <div id="prev-sender" style="text-align:right;font-family:'Playfair Display',serif;font-style:italic;color:var(--gold);margin-top:16px;"></div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <label style="cursor:pointer;display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="opt-impression" style="accent-color:var(--gold);">
+        <span style="font-size:12px;color:var(--text-mid);">Je souhaite qu'ALNAÉ imprime la carte pour moi</span>
+      </label>
+    </div>
+
+    <div style="text-align:center;margin-top:24px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+      <button class="btn-outline" onclick="closePreview()">MODIFIER</button>
+      <button class="btn" id="btn-seal" onclick="sealMessage()">SCELLER DÉFINITIVEMENT</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 3 — SUCCÈS
+     ═══════════════════════════════════════════════════════════ -->
+<div id="page-success" class="page">
+  <div class="container">
+    <div class="alnae-header">
+      <h1>ALNAÉ</h1>
+      <div class="sub">COLLECTION CONFIDENTE</div>
+    </div>
+    <div class="section" style="text-align:center;">
+      <h2 style="color:var(--success);">Message scellé avec succès</h2>
+      <p style="color:var(--text-mid);font-size:13px;margin:16px 0;">
+        Votre message a été gravé dans l'univers ALNAÉ. Il attend désormais d'être révélé.
+      </p>
+
+      <!-- Carte imprimable -->
+      <div class="print-card" id="print-card">
+        <div class="pc-logo">ALNAÉ</div>
+        <div class="pc-sub">COLLECTION CONFIDENTE</div>
+        <hr style="border:none;border-top:1px solid #ddd;margin:16px 0;">
+        <p style="font-size:12px;color:#666;">Code du bijou</p>
+        <div class="pc-code" id="card-jewel-code"></div>
+        <div class="pc-pin" id="card-pin-display"></div>
+        <div class="pc-qr" id="card-qr"></div>
+        <p style="font-size:10px;color:#999;margin-top:12px;">Scannez le QR code ou rendez-vous sur<br>www.alnaeinfinity.com/pages/confidente</p>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px;">
+        <button class="btn-outline" onclick="exportCardPNG()">TÉLÉCHARGER PNG</button>
+        <button class="btn-outline" onclick="exportCardSVG()">TÉLÉCHARGER SVG</button>
+        <button class="btn-outline" onclick="window.print()">IMPRIMER</button>
+      </div>
+    </div>
+    <div class="alnae-footer">
+      Merci d'avoir choisi ALNAÉ Infinity.<br>
+      <a href="https://www.alnaeinfinity.com" target="_blank">www.alnaeinfinity.com</a>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     JAVASCRIPT
+     ═══════════════════════════════════════════════════════════ -->
 <script>
 (() => {
-'use strict';
+  'use strict';
 
-const RENDER_URL = 'https://alnae-confidente-1.onrender.com';
-const REVEAL_PAGE = 'https://www.alnaeinfinity.com/pages/confidente';
+  // ── CONFIG ──────────────────────────────────────────────────────────────
+  const CONFIG = {
+    serverUrl: 'https://alnae-confidente-1.onrender.com',
+    storefrontPageUrl: 'https://www.alnaeinfinity.com/pages/confidente',
+    demoMode: false
+  };
 
-// ── ÉTAT ──────────────────────────────────────────────────────────
-const state = {
-  clientCode: '',
-  orderNumber: '',
-  codeIndex: 1,
-  currentOccasion: '',
-  sugAttempts: 0,       // compteur tentatives suggestions (max 3)
-  preview: null,
-  messageRecord: null,
-  cachedEtym: {}
-};
+  const OCCASIONS = [
+    'Anniversaire', 'Noël', 'Saint-Valentin', 'Fête des Mères',
+    'Fête des Pères', 'Naissance', 'Mariage', 'Fiançailles',
+    'Diplôme', 'Remerciement', 'Juste pour dire je t\'aime', 'Autre'
+  ];
 
+  // ── STATE ───────────────────────────────────────────────────────────────
+  const state = {
+    sessionToken: null,
+    orderNumber: '',
+    clientCode: '',
+    jewelCode: '',
+    displayName: '',
+    email: '',
+    selectedOccasion: '',
+    etymIncluded: false,
+    motivIncluded: false,
+    etymText: '',
+    motivText: '',
+    mediaFiles: [],
+    sealedRecord: null
+  };
 
-// ── GENRES ────────────────────────────────────────────────────────
-
-async function fetchEtymIA(prenom){
-  const key = (prenom||'').toLowerCase().trim();
-  if(state.cachedEtym[key]) return state.cachedEtym[key];
-  try {
-    const ctrlE = new AbortController();
-    const tE = setTimeout(() => ctrlE.abort(), 15000);
-    const r = await fetch(RENDER_URL + '/generate-etym', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prenom }),
-      signal: ctrlE.signal
-    });
-    clearTimeout(tE);
-    const d = await r.json();
-    if (d.etymologyText) {
-      state.cachedEtym[key] = d.etymologyText;
-      return d.etymologyText;
-    }
-  } catch(_) {}
-  // Fallback neutre — jamais genré, jamais "porte en lui/elle"
-  return `${prenom} porte en lui une lumière singulière — celle des êtres qui savent, sans avoir besoin de le dire, qui ils sont vraiment.
-
-Tu es de ceux qui laissent une trace dans les mémoires.
-
-Porte ce bijou. Il te ressemble.`;
-}
-
-
-async function fetchMotivIA(prenom, occasion, msg){
-  try {
-    const ctrlM = new AbortController();
-    const tM = setTimeout(() => ctrlM.abort(), 15000);
-    const r = await fetch(RENDER_URL + '/generate-motiv', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prenom, occasion: occasion||'', personalMessage: msg||'' }),
-      signal: ctrlM.signal
-    });
-    clearTimeout(tM);
-    const d = await r.json();
-    if (d.motivationText) return d.motivationText;
-  } catch(_) {}
-  // Fallback neutre
-  return "Ce bijou est un morceau d\'âme offert avec intention.\n\nIl porte en lui tout ce que les mots n\'arrivent pas toujours à dire.\n\nN\'oublie pas qui tu es.";
-}
-
-
-async function fetchSuggestionsIA(occasion, prenom){
-  try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 15000);
-    const r = await fetch(RENDER_URL + '/generate-suggestions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ occasion, prenom: prenom||'' }),
-      signal: ctrl.signal
-    });
-    clearTimeout(t);
-    const d = await r.json();
-    if (d.suggestions?.length >= 3) return d.suggestions;
-  } catch(_) {}
-  return null;
-}
-
-// ── ÉTAPE 1 : VALIDER LE CODE CLIENT ─────────────────────────────
-g('btn-validate-code')?.addEventListener('click', validateClientCode);
-g('client-code-input')?.addEventListener('keydown', e => { if(e.key==='Enter') validateClientCode(); });
-
-async function validateClientCode(){
-  const code = (g('client-code-input').value||'').replace(/\s/g,'').toUpperCase();
-  if(!code){ setErr('err-code-box',true,'Veuillez saisir votre code confidentiel.'); setInpErr('client-code-input',true); return; }
-  setErr('err-code-box',false); setInpErr('client-code-input',false);
-  const btn=g('btn-validate-code'); btn.disabled=true; btn.textContent='VÉRIFICATION…';
-  try{
-    const resp=await fetch(RENDER_URL+'/validate-client-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientCode:code})});
-    const data=await resp.json();
-    if(!resp.ok) throw new Error(data.message||'Code invalide.');
-    state.clientCode=code;
-    state.orderNumber=data.orderNumber||'';
-    state.codeIndex=data.codeIndex||1;
-    const od=g('form-order-display'); if(od) od.textContent=state.orderNumber;
-    const cd=g('form-code-display');  if(cd) cd.textContent=state.clientCode;
-    showPage('page-form');
-  }catch(err){
-    setErr('err-code-box',true,err.message||'Code incorrect. Vérifiez votre code confidentiel et réessayez.');
-    setInpErr('client-code-input',true);
-  }finally{ btn.disabled=false; btn.textContent='Accéder au formulaire →'; }
-}
-
-// ── APERÇU ────────────────────────────────────────────────────────
-g('btn-preview')?.addEventListener('click', buildPreview);
-async function buildPreview(){
-  const recipient = g('recipient-name').value.trim();
-  const rgpd      = g('rgpd-msg').checked;
-  const hasOcc    = toggleOn('tog-occasion');
-  const hasMsg    = toggleOn('tog-message');
-  const hasEtym   = toggleOn('tog-etym');
-  const hasMotiv  = toggleOn('tog-motiv');
-  const message   = g('message-input').value.trim();
-  let ok = true;
-
-  setErr('err-recipient',!recipient); setInpErr('recipient-name',!recipient); if(!recipient) ok=false;
-  setErr('err-rgpd-msg',!rgpd); if(!rgpd) ok=false;
-  if(!hasOcc&&!hasMsg&&!hasEtym&&!hasMotiv){ setErr('form-error',true); ok=false; }else{ setErr('form-error',false); }
-  if(hasOcc&&!state.currentOccasion){ setErr('err-occasion',true); ok=false; }else{ setErr('err-occasion',false); }
-  if(hasMsg&&!message){ setErr('err-message',true); setInpErr('message-input',true); ok=false; }else{ setErr('err-message',false); setInpErr('message-input',false); }
-  if(!ok) return;
-
-  const occasion = hasOcc ? (state.currentOccasion==='Autre'?(g('autre-text').value.trim()||'Autre'):state.currentOccasion) : '';
-  const btn = g('btn-preview'); btn.disabled=true; btn.textContent='PRÉPARATION…';
-  g('prev-loading').classList.add('show');
-  ['prev-etym','prev-msg-block','prev-motiv-block'].forEach(id=>g(id).style.display='none');
-  g('preview-overlay').classList.add('show');
-  setText('prev-name', recipient);
-  if(occasion){ setText('prev-occasion',occasion); g('prev-occ-wrap').style.display='block'; }
-  else g('prev-occ-wrap').style.display='none';
-  setText('prev-from','— De la part de');
-
-  try{
-    let etymologyText=null, motivationText=null;
-    if(hasEtym)  etymologyText  = await fetchEtymIA(recipient);
-    if(hasMotiv) motivationText = await fetchMotivIA(recipient, occasion, hasMsg?message:null);
-    state.preview = { recipient, occasion, etymologyText, personalMessage:hasMsg?message:null, motivationText, senderLine:'— ALNAÉ Confidente' };
-    if(etymologyText){ setText('prev-etym-text',etymologyText); g('prev-etym').style.display='block'; }
-    if(hasMsg&&message){ setText('prev-message',message); g('prev-msg-block').style.display='block'; }
-    if(motivationText){ setText('prev-motiv-text',motivationText); g('prev-motiv-block').style.display='block'; }
-  }catch(err){
-    g('preview-overlay').classList.remove('show');
-    setErr('form-error',true,err.message||'Erreur lors de la préparation.');
-  }finally{
-    g('prev-loading').classList.remove('show');
-    btn.disabled=false; btn.textContent='👁 PRÉVISUALISER MON MESSAGE';
+  // ── UTILITAIRES DOM ────────────────────────────────────────────────────
+  function g(id) { return document.getElementById(id); }
+  function setText(id, t) { const el = g(id); if (el) el.textContent = t || ''; }
+  function setHtml(id, h) { const el = g(id); if (el) el.innerHTML = h || ''; }
+  function showPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    g(id).classList.add('active');
+    window.scrollTo(0, 0);
   }
-}
 
-function closePreview(){ g('preview-overlay').classList.remove('show'); }
-
-// ── RETOUR ACCUEIL ────────────────────────────────────────────────
-function resetToAccueil(){
-  state.clientCode=''; state.orderNumber=''; state.codeIndex=1;
-  state.currentOccasion=''; state.sugAttempts=0;
-  sugHistory=[]; sugPage=-1;
-  state.preview=null; state.messageRecord=null; state.cachedEtym={};
-  const fields=['client-code-input','recipient-name','message-input','autre-text'];
-  fields.forEach(id=>{ const el=g(id); if(el) el.value=''; });
-  ['tog-occasion','tog-message','tog-etym','tog-motiv'].forEach(id=>{ const el=g(id); if(el) el.checked=false; });
-  ['body-occasion','body-message','body-etym','body-motiv'].forEach(id=>{ const el=g(id); if(el) el.classList.remove('open'); });
-  ['block-occasion','block-message','block-etym','block-motiv'].forEach(id=>{ const el=g(id); if(el) el.classList.remove('on'); });
-  document.querySelectorAll('.pill[data-occasion]').forEach(p=>p.classList.remove('active'));
-  const sb=g('suggestions-box'); if(sb) sb.style.display='none';
-  const af=g('autre-field');     if(af) af.style.display='none';
-  const sc=g('sug-counter');     if(sc) sc.textContent='';
-  const rr=g('sug-regen-row');   if(rr) rr.style.display='none';
-  setText('char-count','0');
-  showPage('page-code');
-}
-
-g('btn-close-preview')?.addEventListener('click', closePreview);
-g('btn-back-edit')?.addEventListener('click', closePreview);
-g('preview-overlay')?.addEventListener('click', e=>{ if(e.target===g('preview-overlay')) closePreview(); });
-
-// ── SCELLEMENT ────────────────────────────────────────────────────
-g('btn-confirm-seal')?.addEventListener('click', sealMessage);
-async function sealMessage(){
-  if(!state.preview) return;
-  const btn=g('btn-confirm-seal'); btn.disabled=true; btn.textContent='SCELLEMENT…';
-  try{
-    const jewelCode = state.clientCode;
-    const body = {
-      clientCode:      state.clientCode,
-      pin:             state.clientCode,
-      jewelCode,
-      recipientName:   state.preview.recipient,
-      occasion:        state.preview.occasion||null,
-      personalMessage: state.preview.personalMessage||null,
-      etymologyText:   state.preview.etymologyText||null,
-      motivationText:  state.preview.motivationText||null,
-      senderLine:      state.preview.senderLine
-    };
-    const resp = await fetch(RENDER_URL+'/seal-message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  async function api(endpoint, body) {
+    const resp = await fetch(CONFIG.serverUrl + endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
     const data = await resp.json();
-    if(!resp.ok) throw new Error(data.message||'Erreur lors du scellement.');
-    const revealUrl = REVEAL_PAGE+'?code='+encodeURIComponent(jewelCode);
-    state.messageRecord = { jewelCode, revealUrl, ...state.preview };
-    closePreview(); launchConfetti(); showPage('page-success');
-  }catch(err){
-    const el=g('form-error'); if(el){ el.textContent=err.message||'Erreur lors du scellement.'; el.classList.add('show'); }
-    closePreview();
-  }finally{ btn.disabled=false; btn.textContent='✦ CONFIRMER ET SCELLER'; }
-}
+    if (!resp.ok) throw new Error(data.message || 'Erreur serveur');
+    return data;
+  }
 
-// ── INIT ──────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', function(){
-  // Occasions
-  document.querySelectorAll('.pill[data-occasion]').forEach(pill=>{
-    pill.addEventListener('click', function(){
-      document.querySelectorAll('.pill[data-occasion]').forEach(p=>p.classList.remove('active'));
-      this.classList.add('active');
-      state.currentOccasion = this.dataset.occasion||'';
-      setErr('err-occasion', false);
-      g('autre-field').style.display = state.currentOccasion==='Autre' ? 'block' : 'none';
-      resetSugAttempts();
-      renderSuggestions(state.currentOccasion);
+  // ── INITIALISATION ─────────────────────────────────────────────────────
+  function init() {
+    // Générer les chips d'occasion
+    const container = g('occasion-chips');
+    OCCASIONS.forEach(occ => {
+      const chip = document.createElement('button');
+      chip.className = 'chip';
+      chip.textContent = occ;
+      chip.onclick = () => selectOccasion(occ, chip);
+      container.appendChild(chip);
     });
-  });
 
-  // Option toggles
-  [['tog-occasion','body-occasion','block-occasion'],
-   ['tog-message','body-message','block-message'],
-   ['tog-etym','body-etym','block-etym'],
-   ['tog-motiv','body-motiv','block-motiv']
-  ].forEach(([tid,bid,blid])=>{
-    g(tid)?.addEventListener('change', function(){
-      g(bid)?.classList.toggle('open', this.checked);
-      g(blid)?.classList.toggle('on',  this.checked);
+    // Pré-remplir le code depuis l'URL
+    const params = new URLSearchParams(location.search);
+    if (params.get('code')) {
+      g('input-code').value = params.get('code');
+    }
+
+    // Drag & drop médias
+    const dropZone = g('media-drop');
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = 'var(--gold)'; });
+    dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = ''; });
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.style.borderColor = '';
+      handleMediaFiles(e.dataTransfer.files);
     });
-  });
 
-  // Compteur caractères
-  g('message-input')?.addEventListener('input', function(){ setText('char-count', String(this.value.length)); });
+    // Afficher section étym quand prénom rempli
+    g('input-recipient').addEventListener('input', () => {
+      const val = g('input-recipient').value.trim();
+      g('section-etym').style.display = val.length >= 2 ? 'block' : 'none';
+      g('btn-suggest').style.display = (val.length >= 2 && state.selectedOccasion) ? 'inline-block' : 'none';
+    });
 
-  // Boutons navigation suggestions
-  g('btn-regen-sug')?.addEventListener('click', regenSuggestions);
-  g('btn-prev-sug')?.addEventListener('click',  prevSuggestions);
+    // Enter sur le code
+    g('input-code').addEventListener('keydown', e => {
+      if (e.key === 'Enter') validateCode();
+    });
+  }
 
-  // Bouton retour accueil
-  g('btn-retour-accueil')?.addEventListener('click', resetToAccueil);
+  // ── VALIDATION DU CODE ─────────────────────────────────────────────────
+  window.validateCode = async function() {
+    const code = g('input-code').value.trim().toUpperCase();
+    if (!code) { setText('code-error', 'Entrez votre code.'); return; }
 
-  // RGPD toggle label
-  g('lbl-rgpd-msg')?.addEventListener('click', ()=>{ const cb=g('rgpd-msg'); if(cb) cb.checked=!cb.checked; });
+    const btn = g('btn-validate-code');
+    btn.disabled = true;
+    setText('code-error', '');
 
-  // Pré-remplir code depuis URL
-  const params    = new URLSearchParams(window.location.search);
-  const codeParam = params.get('code');
-  if(codeParam) g('client-code-input').value = codeParam.toUpperCase();
-});
+    try {
+      const data = await api('/validate-client-code', { clientCode: code });
+      state.sessionToken = data.sessionToken;
+      state.orderNumber = data.orderNumber || '';
+      state.clientCode = code;
+      state.jewelCode = data.jewelCode || '';
+      state.displayName = data.displayName || '';
+      state.email = data.email || '';
 
+      setText('display-order', state.orderNumber);
+      setText('display-code', state.clientCode);
+      showPage('page-compose');
+    } catch (err) {
+      setText('code-error', err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  };
+
+  // ── OCCASION ───────────────────────────────────────────────────────────
+  function selectOccasion(occ, chip) {
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+    chip.classList.add('selected');
+    state.selectedOccasion = occ;
+
+    const hasRecipient = g('input-recipient').value.trim().length >= 2;
+    g('btn-suggest').style.display = hasRecipient ? 'inline-block' : 'none';
+  }
+
+  // ── ÉTYMOLOGIE IA ──────────────────────────────────────────────────────
+  window.fetchEtym = async function() {
+    const prenom = g('input-recipient').value.trim();
+    if (!prenom) return;
+
+    const btn = g('btn-etym');
+    btn.disabled = true;
+    btn.innerHTML = 'GÉNÉRATION<span class="loading-dots"></span>';
+
+    try {
+      const data = await api('/generate-etym', { prenom });
+      state.etymText = data.etymologyText || '';
+      setText('etym-text', state.etymText);
+      g('etym-result').style.display = 'block';
+      state.etymIncluded = true;
+      updateEtymButton();
+    } catch (err) {
+      console.error('Etym error:', err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'RÉGÉNÉRER';
+    }
+  };
+
+  window.toggleEtym = function() {
+    state.etymIncluded = !state.etymIncluded;
+    updateEtymButton();
+  };
+
+  function updateEtymButton() {
+    const btn = g('btn-etym-use');
+    if (state.etymIncluded) {
+      btn.textContent = 'INCLUS ✓';
+      btn.style.borderColor = 'var(--success)';
+      btn.style.color = 'var(--success)';
+    } else {
+      btn.textContent = 'INCLURE';
+      btn.style.borderColor = 'var(--gold-dim)';
+      btn.style.color = 'var(--gold)';
+    }
+  }
+
+  // ── CITATION / MOTIVATION IA ───────────────────────────────────────────
+  window.fetchMotiv = async function() {
+    const prenom = g('input-recipient').value.trim();
+    if (!prenom) return;
+
+    const btn = g('btn-motiv');
+    btn.disabled = true;
+    btn.innerHTML = 'GÉNÉRATION<span class="loading-dots"></span>';
+
+    try {
+      const data = await api('/generate-motiv', {
+        prenom,
+        occasion: state.selectedOccasion || '',
+        personalMessage: g('input-message').value.trim().slice(0, 120)
+      });
+      state.motivText = data.motivationText || '';
+      setText('motiv-text', state.motivText);
+      g('motiv-result').style.display = 'block';
+      state.motivIncluded = true;
+      updateMotivButton();
+    } catch (err) {
+      console.error('Motiv error:', err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'RÉGÉNÉRER';
+    }
+  };
+
+  window.toggleMotiv = function() {
+    state.motivIncluded = !state.motivIncluded;
+    updateMotivButton();
+  };
+
+  function updateMotivButton() {
+    const btn = g('btn-motiv-use');
+    if (state.motivIncluded) {
+      btn.textContent = 'INCLUS ✓';
+      btn.style.borderColor = 'var(--success)';
+      btn.style.color = 'var(--success)';
+    } else {
+      btn.textContent = 'INCLURE';
+      btn.style.borderColor = 'var(--gold-dim)';
+      btn.style.color = 'var(--gold)';
+    }
+  }
+
+  // ── SUGGESTIONS IA ─────────────────────────────────────────────────────
+  window.fetchSuggestions = async function() {
+    const prenom = g('input-recipient').value.trim();
+    const occasion = state.selectedOccasion;
+    if (!occasion) return;
+
+    const btn = g('btn-suggest');
+    btn.disabled = true;
+    btn.innerHTML = 'INSPIRATION<span class="loading-dots"></span>';
+
+    try {
+      const data = await api('/generate-suggestions', { occasion, prenom });
+      if (data.suggestions?.length) {
+        const list = g('suggestions-list');
+        list.innerHTML = '';
+        data.suggestions.forEach(s => {
+          const card = document.createElement('div');
+          card.className = 'suggestion-card';
+          card.textContent = s;
+          card.onclick = () => {
+            g('input-message').value = s;
+            g('suggestions-zone').style.display = 'none';
+          };
+          list.appendChild(card);
+        });
+        g('suggestions-zone').style.display = 'block';
+      }
+    } catch (err) {
+      console.error('Suggestions error:', err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'INSPIRER MON MESSAGE';
+    }
+  };
+
+  // ── MÉDIAS ─────────────────────────────────────────────────────────────
+  window.handleMediaFiles = function(fileList) {
+    const maxFiles = 3;
+    const maxSize = 20 * 1024 * 1024;
+    const files = Array.from(fileList);
+
+    files.forEach(f => {
+      if (state.mediaFiles.length >= maxFiles) return;
+      if (f.size > maxSize) { alert(`${f.name} dépasse 20 Mo.`); return; }
+      state.mediaFiles.push(f);
+    });
+
+    renderMediaPreviews();
+  };
+
+  function renderMediaPreviews() {
+    const container = g('media-preview');
+    container.innerHTML = '';
+    state.mediaFiles.forEach((f, i) => {
+      const item = document.createElement('div');
+      item.className = 'media-item';
+      if (f.type.startsWith('image')) {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(f);
+        item.appendChild(img);
+      } else {
+        const label = document.createElement('span');
+        label.style.cssText = 'font-size:9px;color:var(--text-mid);text-align:center;padding:4px;';
+        label.textContent = f.type.startsWith('audio') ? '🎵' : '🎬';
+        item.appendChild(label);
+      }
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove';
+      removeBtn.innerHTML = '×';
+      removeBtn.onclick = (e) => {
+        e.stopPropagation();
+        state.mediaFiles.splice(i, 1);
+        renderMediaPreviews();
+      };
+      item.appendChild(removeBtn);
+      container.appendChild(item);
+    });
+  }
+
+  // ── PRÉVISUALISATION ───────────────────────────────────────────────────
+  window.buildPreview = function() {
+    const recipient = g('input-recipient').value.trim();
+    const message = g('input-message').value.trim();
+    const pin = g('input-pin').value.trim();
+    const pin2 = g('input-pin2').value.trim();
+    const sender = g('input-sender').value.trim();
+
+    // Validations
+    if (!recipient) { setText('compose-error', 'Indiquez le prénom du destinataire.'); return; }
+    if (!message) { setText('compose-error', 'Écrivez votre message.'); return; }
+    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) { setText('compose-error', 'Le code PIN doit être composé de 4 chiffres.'); return; }
+    if (pin !== pin2) { setText('compose-error', 'Les deux codes PIN ne correspondent pas.'); return; }
+    setText('compose-error', '');
+
+    // Remplir la preview
+    setText('prev-recipient', `Pour toi, ${recipient}`);
+
+    if (state.etymIncluded && state.etymText) {
+      g('prev-etym-block').style.display = 'block';
+      setText('prev-etym-text', state.etymText);
+    } else {
+      g('prev-etym-block').style.display = 'none';
+    }
+
+    setText('prev-message', message);
+
+    if (state.motivIncluded && state.motivText) {
+      g('prev-motiv-block').style.display = 'block';
+      setText('prev-motiv-text', state.motivText);
+    } else {
+      g('prev-motiv-block').style.display = 'none';
+    }
+
+    // Médias dans preview
+    const mediaBlock = g('prev-media-block');
+    const mediaContent = g('prev-media-content');
+    if (state.mediaFiles.length > 0) {
+      mediaBlock.style.display = 'block';
+      mediaContent.innerHTML = '';
+      state.mediaFiles.forEach(f => {
+        const url = URL.createObjectURL(f);
+        if (f.type.startsWith('image')) {
+          const img = document.createElement('img');
+          img.src = url;
+          img.style.cssText = 'max-width:100%;max-height:200px;object-fit:contain;display:block;margin:8px 0;border:1px solid var(--obsidian-border);';
+          mediaContent.appendChild(img);
+        } else if (f.type.startsWith('audio')) {
+          const audio = document.createElement('audio');
+          audio.src = url; audio.controls = true;
+          audio.style.cssText = 'width:100%;margin:8px 0;';
+          mediaContent.appendChild(audio);
+        } else if (f.type.startsWith('video')) {
+          const video = document.createElement('video');
+          video.src = url; video.controls = true;
+          video.style.cssText = 'max-width:100%;max-height:200px;margin:8px 0;';
+          mediaContent.appendChild(video);
+        }
+      });
+    } else {
+      mediaBlock.style.display = 'none';
+    }
+
+    if (sender) {
+      setText('prev-sender', sender);
+    } else {
+      setText('prev-sender', '');
+    }
+
+    g('preview-overlay').classList.add('show');
+  };
+
+  window.closePreview = function() {
+    g('preview-overlay').classList.remove('show');
+  };
+
+  // ── SCELLEMENT ─────────────────────────────────────────────────────────
+  window.sealMessage = async function() {
+    const btn = g('btn-seal');
+    btn.disabled = true;
+    btn.textContent = 'SCELLEMENT EN COURS...';
+
+    try {
+      const record = await api('/seal-message', {
+        sessionToken: state.sessionToken,
+        pin: g('input-pin').value.trim(),
+        recipientName: g('input-recipient').value.trim(),
+        occasion: state.selectedOccasion || '',
+        etymologyText: (state.etymIncluded && state.etymText) ? state.etymText : '',
+        personalMessage: g('input-message').value.trim(),
+        motivationText: (state.motivIncluded && state.motivText) ? state.motivText : '',
+        senderLine: g('input-sender').value.trim(),
+        impressionRequested: g('opt-impression').checked
+      });
+
+      state.sealedRecord = record;
+
+      // Carte imprimable
+      setText('card-jewel-code', record.jewelCode || '');
+      setText('card-pin-display', 'Code PIN : ' + g('input-pin').value.trim());
+
+      // QR Code
+      const qrContainer = g('card-qr');
+      qrContainer.innerHTML = '';
+      const qrUrl = record.revealUrl || (CONFIG.storefrontPageUrl + '?code=' + record.jewelCode);
+      new QRCode(qrContainer, {
+        text: qrUrl,
+        width: 120,
+        height: 120,
+        colorDark: '#333333',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+
+      closePreview();
+      launchConfetti();
+      showPage('page-success');
+    } catch (err) {
+      alert(err.message || 'Erreur lors du scellement.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'SCELLER DÉFINITIVEMENT';
+    }
+  };
+
+  // ── EXPORT CARTE ───────────────────────────────────────────────────────
+  window.exportCardPNG = function() {
+    const card = g('print-card');
+    const canvas = document.createElement('canvas');
+    const scale = 3;
+    canvas.width = card.offsetWidth * scale;
+    canvas.height = card.offsetHeight * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, card.offsetWidth, card.offsetHeight);
+
+    // Utiliser html2canvas simplifié via SVG foreignObject
+    const data = new XMLSerializer().serializeToString(card);
+    const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="${card.offsetWidth}" height="${card.offsetHeight}">
+      <foreignObject width="100%" height="100%">
+        <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:serif;">${data}</div>
+      </foreignObject>
+    </svg>`;
+    const img = new Image();
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0);
+      const link = document.createElement('a');
+      link.download = 'carte-alnae-confidente.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
+  };
+
+  window.exportCardSVG = function() {
+    const card = g('print-card');
+    const data = card.innerHTML;
+    const svgStr = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="350" viewBox="0 0 400 350">
+  <rect width="400" height="350" fill="white"/>
+  <foreignObject width="400" height="350">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Georgia,serif;text-align:center;padding:20px;">
+      ${data}
+    </div>
+  </foreignObject>
+</svg>`;
+    const blob = new Blob([svgStr], { type: 'image/svg+xml' });
+    const link = document.createElement('a');
+    link.download = 'carte-alnae-confidente.svg';
+    link.href = URL.createObjectURL(blob);
+    link.click();
+  };
+
+  // ── CONFETTIS ──────────────────────────────────────────────────────────
+  function launchConfetti() {
+    const container = document.createElement('div');
+    container.className = 'confetti-container';
+    document.body.appendChild(container);
+    const colors = ['#c9a84c', '#e8e0d5', '#a08939', '#fff', '#8a7d6b'];
+    for (let i = 0; i < 60; i++) {
+      const piece = document.createElement('div');
+      piece.className = 'confetti-piece';
+      piece.style.left = Math.random() * 100 + '%';
+      piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+      piece.style.animationDelay = Math.random() * 2 + 's';
+      piece.style.animationDuration = (2 + Math.random() * 2) + 's';
+      container.appendChild(piece);
+    }
+    setTimeout(() => container.remove(), 5000);
+  }
+
+  // ── DÉMARRAGE ──────────────────────────────────────────────────────────
+  init();
 })();
 </script>
+
 </body>
 </html>
