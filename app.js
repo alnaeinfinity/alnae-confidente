@@ -125,279 +125,169 @@ function sendEmailResend(to, subject, html, replyTo) {
 }
 
 // ── IA CÔTÉ SERVEUR ───────────────────────────────────────────────
-function callOpenAI(systemPrompt, userMessage, maxTokens) {
-  if (!OPENAI_API_KEY) {
-    return Promise.resolve(null);
-  }
+async function callOpenAI(systemPrompt, userMessage, maxTokens) {
+  if (!OPENAI_API_KEY) return null;
 
-  return new Promise((resolve) => {
-    const body = JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user",   content: userMessage  }
-      ],
-      max_tokens:   maxTokens || 400,
-      temperature:  0.85
-    });
-
-    const opts = {
-      hostname: "api.openai.com",
-      path:     "/v1/chat/completions",
-      method:   "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type":  "application/json",
-        "Content-Length": Buffer.byteLength(body)
-      }
-    };
-
-    let data = "";
-    const req = https.request(opts, (r) => {
-      r.on("data", d => data += d);
-      r.on("end", () => {
-        try {
-          const parsed = JSON.parse(data);
-          // Format standard /v1/chat/completions
-          const text = parsed.choices?.[0]?.message?.content;
-          if (text && text.trim()) {
-            resolve(text.replace(/\*([^*]+)\*/g, "$1").trim());
-          } else {
-            // Log complet pour diagnostic
-            console.error("[OPENAI] ❌ Réponse inattendue (status HTTP:", r.statusCode, ")");
-            console.error("[OPENAI] Détail:", JSON.stringify(parsed).slice(0, 400));
-            resolve(null);
-          }
-        } catch (e) {
-          console.error("[OPENAI] ❌ Parse erreur:", e.message);
-          console.error("[OPENAI] Données brutes:", data.slice(0, 300));
-          resolve(null);
-        }
-      });
-    });
-    req.on("error", (e) => {
-      console.error("[OPENAI] Erreur réseau :", e.message);
-      resolve(null);
-    });
-    req.write(body);
-    req.end();
+  const body = JSON.stringify({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user",   content: userMessage  }
+    ],
+    max_tokens:  maxTokens || 400,
+    temperature: 0.85
   });
-}
 
-
-// Détection genre simple côté serveur
-function detectGenre(prenom) {
-  if (!prenom) return "neutre";
-
-  // Liste masculine explicite
-  const prenomsMasculins = new Set([
-    "aaron","adam","adrien","alexandre","alexis","arnaud","arthur","axel","baptiste",
-    "benjamin","charles","christophe","clement","damien","daniel","david","edouard",
-    "emmanuel","ethan","etienne","felix","florian","francois","gabriel","gabin",
-    "guillaume","hugo","jean","jeremy","jerome","julien","kevin","kylian","laurent",
-    "leon","luca","lucas","leo","loic","louis","luka","mael","marc","martin",
-    "mathieu","mathis","maxime","maxence","mehdi","michael","michel","nathan",
-    "nicolas","noah","noel","nolan","olivier","oscar","paul","philippe","pierre",
-    "raphael","remi","robin","romain","ruben","samuel","sebastien","simon",
-    "stephane","tanguy","theo","thibault","thierry","thomas","timothee","tom",
-    "tristan","ugo","valentin","victor","vincent","william","xavier","yann"
-    "benjamin","charles","christophe","clement","corentin","damien","daniel","david",
-    "edouard","emmanuel","ethan","etienne","felix","florian","francois","gabriel",
-    "gabin","gautier","gilbert","guillaume","hugo","jean","jeremy","jerome","julien",
-    "kevin","kylian","laurent","leon","luca","lucas","leo","loic","louis","luka",
-    "mael","marc","martin","mathieu","mathis","maxime","maxence","mehdi","michael",
-    "michel","nathan","nicolas","noah","noel","nolan","olivier","oscar","paul",
-    "philippe","pierre","raphael","remi","robin","romain","ruben","samuel",
-    "sebastien","simon","stephane","tanguy","theo","thibault","thierry","thomas",
-    "timothee","tom","tristan","ugo","valentin","victor","vincent","william",
-    "xavier","yann","yannick"
-  ]);
-
-  // Liste féminine explicite pour les prénoms ambigus ou mal couverts
-  const prenomsFeminins = new Set([
-    "fabienne","corinne","nathalie","stephanie","virginie","audrey","veronique",
-    "florence","laurence","beatrice","sylvie","nadege","jennifer","jennifer",
-    "solene","vivienne","dorothee","genevieve","frederique","dominique","pascale",
-    "michele","danielle","christelle","murielle","gabrielle","isabelle","joelle",
-    "rachelle","noelle","gisele","michele","odette","yvette","lisette","colette",
-    "henriette","claudette","lucette","juliette","annette","pierrette","ninette",
-    "josette","marinette","jeannette","violette","babette","suzette","cosette",
-    "marguerite","brigitte","charlotte","annick","lydie","laetitia","leticia",
-    "leonie","clementine","josephine","delphine","perrine","charline","marjorie",
-    "eloise","heloise","melanie","tiffany","brittany","bethany","courtney",
-    "ashley","kimberly","lindsey","aubrey","casey","kelly","lesley","whitney",
-    "hilary","margot","inès","ines","agnes","gladys","doris","mavis","enid",
-    "gwyneth","siobhan","niamh","maeve","caoimhe","roisin","grainne"
-  ]);
-
-  const p = prenom.trim().toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .split(/[\s-]/)[0];
-
-  if (prenomsMasculins.has(p)) return "masculin";
-  // Heuristiques
-  const l3=p.slice(-3), l2=p.slice(-2), l1=p.slice(-1);
-  if (prenomsFeminins.has(p))  return "feminin";
-
-  // Heuristiques terminaisons — ordre : du plus spécifique au plus général
-  const l4=p.slice(-4), l3=p.slice(-3), l2=p.slice(-2), l1=p.slice(-1);
-
-  // Terminaisons féminines fréquentes
-  if (["enne","inne","onne","agne"].includes(l4)) return "feminin"; // Fabienne, Corinne
-  if (["lie","nie","rie","vie","fie","gie","tie"].includes(l3)) return "feminin"; // Nathalie, Stéphanie, Sylvie
-  if (["ice","ace","uce"].includes(l3)) return "feminin"; // Béatrice, Grace
-  if (["nce","nse"].includes(l3)) return "feminin"; // Florence, Laurence, Constance
-  if (["que","gue"].includes(l3)) return "feminin"; // Véronique, Monique
-  if (["ney","rey","ley"].includes(l3)) return "feminin"; // Audrey, Courtney, Ashley
-  if (["ine","ene","ale","lle","tte","ise","ose","ane","elle"].includes(l3)) return "feminin";
-  if (["ia","ea","na","la","ra","sa"].includes(l2)) return "feminin";
-  if (["ia","ea","na","la","ra","sa","ga","da","fa","ka","ma"].includes(l2)) return "feminin";
-  if (l1==="a" && p.length>3) return "feminin";
-  if (["el","en","on","an","in","us"].includes(l2)) return "masculin";
-
-  // Terminaisons masculines
-  if (["ard","ert","aud","aux","eux","oux"].includes(l3)) return "masculin";
-  if (["el","en","on","an","in","us","ix","ex"].includes(l2)) return "masculin";
-  if (l1==="o" && p.length>3) return "masculin";
-  return "neutre"; // si incertain → formulation neutre
-
-  return "neutre";
-}
-
-// Textes de secours si l'IA est indisponible
-function fallbackEtym(prenom, genre) {
-  if (genre === "masculin") {
-    return `${prenom} porte en lui la force tranquille de ceux qui savent qui ils sont.\n\nIl avance avec une clarté rare — celle des hommes qui ne cherchent plus à prouver, mais à créer.\n\nPorte-le. Il te va bien.`;
+  const MAX_ATTEMPTS = 3;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const result = await new Promise((resolve, reject) => {
+        const opts = {
+          hostname: "api.openai.com",
+          path:     "/v1/chat/completions",
+          method:   "POST",
+          headers: {
+            "Authorization":  `Bearer ${OPENAI_API_KEY}`,
+            "Content-Type":   "application/json",
+            "Content-Length": Buffer.byteLength(body)
+          }
+        };
+        let data = "";
+        const req = https.request(opts, (r) => {
+          r.on("data", d => data += d);
+          r.on("end", () => {
+            try {
+              const parsed = JSON.parse(data);
+              const text   = parsed.choices?.[0]?.message?.content;
+              if (text && text.trim()) {
+                resolve(text.replace(/\*([^*]+)\*/g, "$1").trim());
+              } else {
+                console.error(`[OPENAI] tentative ${attempt} — vide (HTTP ${r.statusCode})`);
+                reject(new Error("empty"));
+              }
+            } catch(e) {
+              console.error(`[OPENAI] tentative ${attempt} — parse:`, e.message);
+              reject(e);
+            }
+          });
+        });
+        req.on("error", e => {
+          console.error(`[OPENAI] tentative ${attempt} — réseau:`, e.message);
+          reject(e);
+        });
+        req.write(body);
+        req.end();
+      });
+      return result;
+    } catch(_) {
+      if (attempt < MAX_ATTEMPTS) {
+        const delay = attempt * 800;
+        console.log(`[OPENAI] retry ${attempt+1}/${MAX_ATTEMPTS} dans ${delay}ms…`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
   }
-  if (genre === "feminin") {
-    return `${prenom} porte en lui la grâce de celles qui ont su traverser les tempêtes sans perdre leur lumière.\n\nIl incarne une douceur qui ne capitule pas, une élégance qui vient de l'intérieur.\n\nPorte-le. Il te ressemble.`;
-  }
-  return `${prenom} porte en lui quelque chose de rare — une énergie singulière qui appartient seulement à ceux qui osent être vraiment eux-mêmes.\n\nC'est un prénom qui laisse une trace.\n\nPorte-le. Il te ressemble.`;
+  console.error("[OPENAI] ❌ Échec après", MAX_ATTEMPTS, "tentatives.");
+  return null;
 }
 
-function fallbackMotiv(genre) {
-  const citations = {
-    feminin: "Porter ce bijou, c'est porter un morceau de l'âme de quelqu'un qui croit en toi.\n\nN'oublie pas qui tu es.",
-    masculin: "Ce bijou porte avec lui tout ce que les mots n'ont pas su dire.\n\nN'oublie pas qui tu es.",
-    neutre: "Ce bijou est un morceau d'âme offert avec intention.\n\nN'oublie pas qui tu es."
-  };
-  return citations[genre] || citations.neutre;
-}
+
+
+
 
 // ── ENDPOINT : GÉNÉRER ÉTYMOLOGIE ────────────────────────────────
 app.post("/generate-etym", async (req, res) => {
   const { prenom } = req.body;
   if (!prenom) return res.status(400).json({ message: "Prénom manquant." });
 
-  const genre = detectGenre(prenom);
-  const gLabel = genre === "neutre" ? "mixte" : genre;
+  const SYS = `Tu travailles pour ALNAÉ Infinity, maison de haute joaillerie française.
+Ton rôle : écrire l'essence d'un prénom. Ce texte sera gravé sur une carte glissée dans l'écrin d'un bijou offert.
 
-  const systemPrompt = `Tu es un expert en écriture émotionnelle haut de gamme pour une marque de bijoux de luxe français appelée ALNAÉ Infinity.
-Tu vas écrire l'essence poétique d'un prénom pour accompagner un bijou offert.
-RÈGLES ABSOLUES :
-- Jamais de texte générique ou répétitif
-- Toujours accorder au genre : ${gLabel}
-- Ton poétique, profond, élégant, jamais cliché
-- Pas de liste, pas de tiret, pas de guillemets, pas de markdown, pas de caractères spéciaux
-- 3 courts paragraphes séparés par une ligne vide
-- Le texte sera gravé sur une carte qui accompagne un bijou de luxe`;
+RÈGLES :
+Origine — si tu connais l'étymologie de ce prénom, mentionne-la avec élégance. Si tu n'es pas certain, propose une interprétation sensorielle et poétique crédible, sans inventer.
+Genre — détermine toi-même si le prénom est masculin, féminin ou mixte. Accorde si évident. En cas de doute, formulation neutre et fluide.
+Structure — 3 paragraphes courts séparés par une ligne vide :
+Paragraphe 1 (2 phrases) : l'essence ou l'origine du prénom, racontée comme une confidence douce.
+Paragraphe 2 (2 phrases) : ce que ce prénom révèle de la personne qui le porte, en tutoiement direct.
+Paragraphe 3 (1 phrase) : une phrase finale courte, forte, mémorable.
+Ton — poétique, précieux, profond. Jamais générique. Chaque texte doit sembler écrit uniquement pour ce prénom.
+Format — texte pur, aucun markdown, aucun tiret, aucun guillemet, aucune liste.`;
 
-  const userMessage = `Prénom : ${prenom}
-Genre : ${gLabel}
+  const result = await callOpenAI(SYS,
+    "Prénom : " + prenom + "\n\nÉcris l'essence unique de ce prénom pour ALNAÉ Infinity.",
+    420
+  );
 
-1. Donne une interprétation poétique et crédible du prénom (pas forcément une étymologie académique, mais belle et cohérente) — 2 phrases
-2. Écris ce que ce prénom révèle de la personne qui le porte, en tutoiement, accordé au genre ${gLabel} — 2 phrases intimes
-3. Une seule phrase finale, courte, forte, mémorable
+  const FALLBACK = prenom + " porte une résonance singulière — celle des prénoms qui marquent sans chercher à s'imposer.\n\nTu portes en toi quelque chose de rare : une présence, une sensibilité, une lumière que les autres reconnaissent sans toujours savoir la nommer.\n\nPorte ce bijou. Il te ressemble.";
 
-Le texte doit être UNIQUE et ne jamais se répéter.`;
-
-  const result = await callOpenAI(systemPrompt, userMessage, 350);
-
-  return res.json({
-    etymologyText: result || fallbackEtym(prenom, genre),
-    genre,
-    source: result ? "ia" : "fallback"
-  });
+  return res.json({ etymologyText: result || FALLBACK, source: result ? "ia" : "fallback" });
 });
-
 
 // ── ENDPOINT : GÉNÉRER CITATION ───────────────────────────────────
 app.post("/generate-motiv", async (req, res) => {
   const { prenom, occasion, personalMessage } = req.body;
   if (!prenom) return res.status(400).json({ message: "Prénom manquant." });
 
-  const genre = detectGenre(prenom);
-  const gLabel = genre === "neutre" ? "mixte" : genre;
   const ctx = [];
-  if (occasion && occasion !== "Autre") ctx.push(`Occasion : ${occasion}`);
-  if (personalMessage) ctx.push(`Contexte du message : "${personalMessage.slice(0, 100)}"`);
+  if (occasion && occasion !== "Autre") ctx.push("Occasion : " + occasion);
+  if (personalMessage) ctx.push("Message de l'expéditeur : \"" + personalMessage.slice(0, 150) + "\"");
+  const ctxStr = ctx.join("\n") || "Bijou offert avec soin et intention.";
 
-  const systemPrompt = `Tu es un expert en écriture émotionnelle haut de gamme pour ALNAÉ Infinity, marque de bijoux de luxe.
-Tu écris UNE citation courte (2 à 3 phrases maximum) qui accompagnera un bijou offert.
-RÈGLES ABSOLUES :
-- Accordée au genre : ${gLabel}
-- Unique, jamais générique, jamais répétitive
-- Poétique, profond, élégant — jamais cliché
-- Doit évoquer la valeur, la beauté intérieure, la force de la personne
-- Se termine TOUJOURS par : "N'oublie pas qui tu es."
-- Pas de guillemets, pas de tiret, pas de markdown`;
-  const ctxStr = ctx.join("\n") || "Bijou offert avec amour.";
-  const userMessage = "Pr\xc3\xa9nom du destinataire : " + prenom + " (genre : " + gLabel + ")\n" +
-    ctxStr + "\n\n" +
-    "\xc3\x89cris une citation courte, forte et unique pour ce bijou. Termine par \"N'oublie pas qui tu es.\"";
-  const result = await callOpenAI(systemPrompt, userMessage, 150);
+  const SYS = `Tu es la plume d'ALNAÉ Infinity, maison de haute joaillerie française.
+Tu rédiges une citation exclusive (2 à 3 phrases) qui accompagnera un bijou offert.
 
-  return res.json({
-    motivationText: result || fallbackMotiv(genre),
-    genre,
-    source: result ? "ia" : "fallback"
-  });
+RÈGLES :
+Genre — détermine toi-même si le prénom est masculin, féminin ou mixte. Accorde si évident. En cas de doute, formulation neutre et fluide.
+Valorisation — exprime la beauté intérieure, la valeur profonde, la force ou le rayonnement de la personne. Le bijou doit sembler fait pour elle, pour lui, pour cette personne unique.
+Évite — les clichés, les banalités, les formules trop directes et plates.
+Occasion — si une occasion est fournie, le texte doit y résonner naturellement sans la mentionner platement.
+Signature finale obligatoire (dernière phrase) : N'oublie pas qui tu es.
+Format — texte pur, aucun markdown, aucun tiret, aucun guillemet.`;
+
+  const result = await callOpenAI(SYS,
+    "Prénom : " + prenom + "\n" + ctxStr + "\n\nRédige une citation unique et précieuse. Termine par : N'oublie pas qui tu es.",
+    180
+  );
+
+  const FALLBACK = "Ce bijou a été pensé comme un éclat à porter — une présence discrète mais précieuse.\n\nPorte-le comme un rappel de tout ce que tu es, et de tout ce que tu vaux.\n\nN'oublie pas qui tu es.";
+
+  return res.json({ motivationText: result || FALLBACK, source: result ? "ia" : "fallback" });
 });
-
 
 // ── ENDPOINT : GÉNÉRER SUGGESTIONS ───────────────────────────────
 app.post("/generate-suggestions", async (req, res) => {
   const { occasion, prenom } = req.body;
   if (!occasion) return res.status(400).json({ message: "Occasion manquante." });
 
-  const genre = detectGenre(prenom || "");
-  const gLabel = genre === "neutre" ? "mixte" : genre;
+  const SYS = `Tu es autrice pour ALNAÉ Infinity, maison de haute joaillerie française.
+Tu rédiges 3 suggestions de messages personnels pour accompagner un bijou offert.
 
-  const systemPrompt = `Tu es un expert en écriture émotionnelle haut de gamme pour ALNAÉ Infinity, marque de bijoux de luxe français.
-Tu vas écrire 3 suggestions de messages personnalisés pour accompagner un bijou offert.
-RÈGLES ABSOLUES :
-- Accordées au genre : ${gLabel}
-- Chaque message est UNIQUE et différent des autres — jamais les mêmes phrases
-- Style : poétique, profond, élégant, haute couture émotionnelle
-- Jamais cliché, jamais générique, jamais répétitif
-- Tutoiement
-- 2 à 4 phrases par message
-- Réponds UNIQUEMENT en JSON valide, sans markdown, sans commentaire
-Format : {"suggestions":["message1","message2","message3"]}`;
+RÈGLES :
+Genre — détermine toi-même le genre probable du prénom. Accorde si évident, neutre si incertain.
+Différenciation — les 3 messages doivent être profondément différents, pas juste reformulés.
+Ancrage — chaque message doit être vraiment ancré dans l'occasion fournie.
+Message 1 — touchant, intime, confidentiel, comme un secret murmuré.
+Message 2 — poétique, métaphorique, sensoriel, une image qui reste.
+Message 3 — affirmé, puissant, libérateur, une vérité dite avec amour.
+Tutoiement. 2 à 4 phrases par message. Pas de banalité, pas de cliché.
+Format — UNIQUEMENT du JSON valide sans markdown ni backticks : {"suggestions":["msg1","msg2","msg3"]}`;
 
-  const userMessage = `Occasion : ${occasion}
-Prénom du destinataire : ${prenom || "le destinataire"} (genre : ${gLabel})
+  const result = await callOpenAI(SYS,
+    "Occasion : " + occasion + "\nPrénom : " + (prenom || "le destinataire") + "\n\nGénère 3 messages profondément différents, vraiment adaptés à cette occasion.",
+    700
+  );
 
-Génère 3 messages d'accompagnement uniques et émotionnels pour ce bijou.
-Le 1er doit être touchant et intime.
-Le 2e doit être poétique et métaphorique.
-Le 3e doit être puissant et mémorable.`;
-
-  const result = await callOpenAI(systemPrompt, userMessage, 600);
   let suggestions = null;
-
   if (result) {
     try {
-      const cleaned = result.replace(/\`\`\`json|\`\`\`/g, "").trim();
+      const cleaned = result.replace(/```json|```/g, "").trim();
       const parsed  = JSON.parse(cleaned);
       if (parsed.suggestions?.length >= 3) suggestions = parsed.suggestions;
-    } catch(e) {
-      console.error("[SUGGESTIONS] Parse JSON échoué:", result.slice(0, 200));
-    }
+    } catch(e) { console.error("[SUG] JSON échoué:", result.slice(0, 150)); }
   }
-
   return res.json({ suggestions: suggestions || null });
 });
+
 
 
 // ── ENDPOINT ADMIN : CRÉER UNE COMMANDE ──────────────────────────
@@ -619,54 +509,46 @@ app.post("/seal-message", async (req, res) => {
   // ── GÉNÉRATION IA CÔTÉ SERVEUR ────────────────────────────────
   // Le front n'envoie plus l'étymologie ni la citation — tout est généré ici
   const prenom = recipientName || "";
-  const genre  = detectGenre(prenom);
-  const gLabel = genre === "neutre" ? "mixte" : genre;
 
-  // Les deux appels IA en parallèle pour ne pas ralentir la réponse
+  // ── IA 100% — sans logique de genre locale ───────────────────
   const [aiEtym, aiMotiv] = await Promise.all([
 
-    // Étymologie poétique du prénom
     prenom ? callOpenAI(
-      `Tu es un expert en écriture émotionnelle haut de gamme pour ALNAÉ Infinity, marque de bijoux de luxe.
-Tu vas écrire l'essence poétique d'un prénom pour accompagner un bijou offert.
-RÈGLES ABSOLUES :
-- Accordé au genre : ${gLabel}
-- Jamais générique, jamais répétitif, jamais académique
-- Ton poétique, profond, élégant
-- 3 courts paragraphes séparés par une ligne vide
-- Pas de liste, pas de tiret, pas de guillemets, pas de markdown`,
-      `Prénom : ${prenom}. Genre : ${gLabel}.
-1. Donne une interprétation poétique et crédible du prénom (belle et cohérente) — 2 phrases
-2. Ce que ce prénom révèle de la personne qui le porte, en tutoiement — 2 phrases intimes
-3. Une seule phrase finale, courte, forte, mémorable`,
-      350
+      `Tu es un poète au service d'ALNAÉ Infinity.
+Tu écris l'essence d'un prénom pour une carte bijou de luxe.
+Détermine toi-même si ce prénom est masculin, féminin ou mixte. Accorde naturellement si évident. Si incertain, formulation neutre et fluide.
+3 paragraphes courts séparés par une ligne vide. Ton poétique, profond, élégant. Aucun markdown.`,
+      `Prénom : ${prenom}
+
+Écris l'essence poétique de ce prénom pour une carte bijou de luxe. Texte unique.`,
+      380
     ) : null,
 
-    // Citation ALNAÉ adaptée à l'occasion
     callOpenAI(
-      `Tu es un expert en écriture émotionnelle haut de gamme pour ALNAÉ Infinity, marque de bijoux de luxe.
-Tu écris UNE citation courte (2 à 3 phrases max) qui accompagne un bijou offert.
-RÈGLES ABSOLUES :
-- Accordée au genre : ${gLabel}
-- Unique, jamais générique, jamais répétitive
-- Poétique, profond, élégant — jamais cliché
-- Évoque la valeur intérieure, la beauté, la force de la personne
-- Se termine TOUJOURS par : "N'oublie pas qui tu es."
-- Pas de guillemets, pas de tiret, pas de markdown`,
-      `Prénom : ${prenom} (genre : ${gLabel})
+      `Tu es la voix d'ALNAÉ Infinity. Tu écris une citation courte (2-3 phrases) pour un bijou offert.
+Détermine toi-même si le prénom est masculin, féminin ou mixte. Accorde si évident, neutre si incertain.
+Valorise la beauté intérieure, la présence, le rayonnement de la personne.
+Termine TOUJOURS par : "N'oublie pas qui tu es." Aucun markdown.`,
+      `Prénom : ${prenom}
 Occasion : ${occasion || "cadeau"}
 ${personalMessage ? "Contexte : " + personalMessage.slice(0, 100) : ""}
-Génère une citation courte, unique et émotionnelle. Termine par "N'oublie pas qui tu es."`,
-      150
+Citation courte et unique. Termine par "N'oublie pas qui tu es."`,
+      160
     )
   ]);
 
-  // Utiliser l'IA ou le fallback si l'IA est indisponible
-  const finalEtym  = aiEtym  || fallbackEtym(prenom, genre);
-  const finalMotiv = aiMotiv || fallbackMotiv(genre);
+  const FALLBACK_ETYM  = `${prenom} porte une résonance singulière — celle des prénoms qui marquent sans chercher à s'imposer.
 
-  console.log("[SEAL] IA étym:", aiEtym  ? "✓ générée" : "⚠ fallback");
-  console.log("[SEAL] IA motiv:", aiMotiv ? "✓ générée" : "⚠ fallback");
+Tu portes en toi quelque chose de rare : une présence, une sensibilité, une lumière que les autres reconnaissent.
+
+Porte ce bijou. Il te ressemble.`;
+  const FALLBACK_MOTIV = "Ce bijou a été pensé comme un éclat à porter, une présence discrète mais précieuse.\n\nN'oublie pas qui tu es.";
+
+  const finalEtym  = aiEtym  || FALLBACK_ETYM;
+  const finalMotiv = aiMotiv || FALLBACK_MOTIV;
+
+  console.log("[SEAL] IA étym:", aiEtym  ? "✓" : "⚠ fallback neutre");
+  console.log("[SEAL] IA motiv:", aiMotiv ? "✓" : "⚠ fallback neutre");
 
   // ── Stocker le message avec contenu IA ───────────────────────
   const msgData = {
