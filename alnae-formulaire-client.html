@@ -308,9 +308,10 @@ header{text-align:center;padding:3rem 2rem 1.5rem;position:relative;z-index:1;}
           <div class="sug-title">✦ Suggestions — cochez celle(s) qui vous inspirent</div>
           <div id="suggestions-list"></div>
           <div class="sug-regen-row" id="sug-regen-row" style="display:none;">
+            <button class="sug-regen-btn" id="btn-prev-sug" type="button" style="display:none;">← Précédent</button>
+            <span class="sug-counter" id="sug-counter"></span>
+            <span class="sug-spinner" id="sug-spinner" style="display:none;">✦ génération…</span>
             <button class="sug-regen-btn" id="btn-regen-sug" type="button">✦ Autres suggestions</button>
-            <span class="sug-counter" id="sug-counter">0 / 3</span>
-            <span class="sug-spinner" id="sug-spinner">✦ génération…</span>
           </div>
         </div>
       </div>
@@ -418,39 +419,203 @@ const state = {
 
 
 // ── GENRES ────────────────────────────────────────────────────────
-const PRENOMS_M=new Set(['aaron','adam','adrien','alexandre','alexis','alban','albert','ali','allan','arnaud','arthur','aurelien','axel','ayoub','baptiste','benjamin','benoit','bernard','boris','brice','bruno','cedric','charles','christophe','clement','corentin','cyril','damien','daniel','david','denis','dorian','dylan','edouard','emmanuel','eric','ethan','etienne','evan','felix','florian','francois','frederic','gabriel','gabin','gautier','gerard','gilles','guillaume','gustave','guy','henri','hugo','isaac','ivan','jack','jean','jeremy','jerome','julien','kevin','kylian','laurent','leon','leonard','liam','lionel','luca','lucas','ludovic','leo','loic','louis','luka','mael','malo','marc','martin','mathieu','mathis','maxime','maxence','mehdi','michael','michel','milan','morgan','nael','nathan','nicolas','noah','noel','nolan','octave','olivier','oscar','paul','philippe','pierre','rafael','raphael','regis','remi','renaud','rene','robin','romain','ruben','samuel','sasha','sebastien','serge','simon','stanislas','stephane','sylvain','tanguy','theo','thibault','thierry','thomas','timothee','tom','tristan','ugo','valentin','victor','vincent','william','xavier','yann','yannick','yves','zacharie','zinedine']);
-function detectGenre(p){if(!p)return'F';const s=p.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').split(/[\s-]/)[0];if(PRENOMS_M.has(s))return'M';const l3=s.slice(-3),l2=s.slice(-2),l1=s.slice(-1);if(['ine','ene','ale','lle','tte','ise','ose','ane'].includes(l3))return'F';if(['ia','ea','na','la','ra','sa'].includes(l2))return'F';if(l1==='a'&&s.length>3)return'F';if(['el','en','on','an','in','us'].includes(l2))return'M';if(l1==='o'&&s.length>3)return'M';return'F';}
+const PRENOMS_M = new Set([
+  "aaron","adam","adrien","alexandre","alexis","arnaud","arthur","axel","baptiste",
+  "benjamin","charles","christophe","clement","corentin","damien","daniel","david",
+  "edouard","emmanuel","ethan","etienne","felix","florian","francois","gabriel",
+  "gabin","guillaume","hugo","jean","jeremy","jerome","julien","kevin","kylian",
+  "laurent","leon","luca","lucas","leo","loic","louis","luka","mael","marc","martin",
+  "mathieu","mathis","maxime","maxence","mehdi","michael","michel","nathan","nicolas",
+  "noah","noel","nolan","olivier","oscar","paul","philippe","pierre","raphael","remi",
+  "robin","romain","ruben","samuel","sebastien","simon","stephane","tanguy","theo",
+  "thibault","thierry","thomas","timothee","tom","tristan","ugo","valentin","victor",
+  "vincent","william","xavier","yann","yannick"
+]);
+const PRENOMS_F = new Set([
+  "fabienne","corinne","nathalie","stephanie","virginie","audrey","veronique",
+  "florence","laurence","beatrice","sylvie","nadege","jennifer","solene","vivienne",
+  "dorothee","genevieve","frederique","pascale","michele","danielle","christelle",
+  "murielle","gabrielle","isabelle","joelle","rachelle","noelle","lisette","colette",
+  "henriette","claudette","annette","juliette","violette","marguerite","brigitte",
+  "charlotte","lydie","laetitia","leonie","clementine","josephine","delphine",
+  "perrine","charline","marjorie","eloise","heloise","melanie","tiffany","margot"
+]);
+function detectGenre(p){
+  if(!p) return 'F';
+  const s = p.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').split(/[\s-]/)[0];
+  if(PRENOMS_M.has(s)) return 'M';
+  if(PRENOMS_F.has(s)) return 'F';
+  const l4=s.slice(-4), l3=s.slice(-3), l2=s.slice(-2), l1=s.slice(-1);
+  if(["enne","inne","onne","agne"].includes(l4)) return 'F';
+  if(["lie","nie","rie","vie","fie","gie","tie","ice","ace","nce","nse","que","gue","ney","rey","ley"].includes(l3)) return 'F';
+  if(["ine","ene","ale","lle","tte","ise","ose","ane","elle"].includes(l3)) return 'F';
+  if(["ia","ea","na","la","ra","sa","ga","da","fa","ka","ma"].includes(l2)) return 'F';
+  if(l1==='a' && s.length>3) return 'F';
+  if(["ard","ert","aud"].includes(l3)) return 'M';
+  if(["el","en","on","an","in","us","ix","ex"].includes(l2)) return 'M';
+  if(l1==='o' && s.length>3) return 'M';
+  return 'F'; // par défaut féminin plutôt que neutre — évite "porte en lui" pour des prénoms inconnus
+}
+// ── SUGGESTIONS — avec historique et navigation ───────────────────
+const MAX_SUG_ATTEMPTS = 3;
 
-const CITATIONS={F:["Tu es plus forte que tu ne le crois, plus belle que tu ne le vois, et plus aimée que tu ne le sais.\n\nN'oublie pas qui tu es.","Porter ce bijou, c'est porter un morceau de l'âme de quelqu'un qui croit en toi.\n\nN'oublie pas qui tu es.","Elle croyait qu'elle pouvait, alors elle l'a fait.\n\nN'oublie pas qui tu es."],M:["Tu es plus fort que tu ne le crois, plus grand que tu ne le vois, et plus aimé que tu ne le sais.\n\nN'oublie pas qui tu es.","Porter ce bijou, c'est porter un morceau de l'âme de quelqu'un qui croit en toi.\n\nN'oublie pas qui tu es.","Il croyait qu'il pouvait, alors il l'a fait.\n\nN'oublie pas qui tu es."]};
+// Historique des pages de suggestions déjà générées
+// permet de revenir en arrière
+let sugHistory = [];  // tableau de tableaux : [[page1], [page2], [page3]]
+let sugPage    = -1;  // index courant dans sugHistory
 
-const SUGGESTIONS={
-  'Anniversaire':["En ce jour si particulier, je voulais que tu saches à quel point tu comptes. Chaque année te rend encore plus toi.","Tu mérites ce bijou, comme tu mérites tout ce que la vie a de plus beau. Avec tout mon amour.","Le temps passe, mais la place que tu as dans mon cœur ne change pas."],
-  'Amour':["Tu n'as rien à faire pour être aimé(e). Tu l'es déjà, entièrement, tel(le) que tu es.","Ce bijou est une façon de te dire ce que les mots peinent parfois à exprimer. Je t'aime.","Tu es la raison pour laquelle je crois aux belles choses. Porte ce bijou près de toi."],
-  'Amitié':["Certaines personnes entrent dans ta vie et tu réalises que tu ne peux plus imaginer sans elles. Tu es de celles-là.","Les vraies amitiés sont rares. La nôtre compte parmi mes plus belles évidences.","Ce bijou est un morceau de notre histoire. Porte-le quand tu as besoin de te sentir moins seul(e)."],
-  'Mariage':["Deux âmes qui choisissent de marcher ensemble. Ce bijou célèbre ce courage et cet amour.","Que chaque jour soit une nouvelle raison de s'être dit oui. Avec toute mon affection.","Ce bijou accompagnera les plus beaux moments de votre vie ensemble. Félicitations."],
-  'Diplôme':["Tu as travaillé, persévéré, et tu y es arrivé(e). Ce diplôme représente tout ce que tu peux accomplir.","Félicitations. Que cette réussite soit le premier chapitre de tout ce que tu as rêvé de construire.","Je t'ai regardé(e) avancer, douter parfois, mais jamais abandonner. Je suis fier/fière de toi."],
-  'Fête des mères':["Aucun bijou ne pourra exprimer tout ce que tu représentes. Mais j'espère qu'il te rappellera à quel point tu es aimée.","Tu m'as appris à me lever quand je tombe, à aimer sans condition. Merci pour tout.","Pour celle qui a tout donné sans jamais rien demander. Ce bijou est fait pour toi."],
-  'Encouragement':["Je sais que ce n'est pas facile. Mais je connais ta force. Tu vas y arriver.","Tu es capable, tu es exactement où tu dois être. Continue.","Porte ce bijou comme un rappel que tu n'es jamais seul(e). Quelqu'un croit en toi."],
-  'Souvenir':["Ce moment entre nous, je ne veux pas l'oublier. Voici quelque chose qui t'y ramène.","Les mots ne suffisent pas. Ce bijou porte notre souvenir.","Là où les photos s'effacent et les mots se perdent, ce bijou restera."],
-  'Noël':["En cette période de lumières, j'avais envie de t'offrir quelque chose qui te ressemble. Joyeux Noël.","Noël, c'est le moment que je préfère pour dire les choses qu'on n'ose pas dire. Tu comptes énormément.","Ce bijou est mon cadeau, mais surtout un morceau de moi que je t'offre."]
-};
+function resetSugAttempts(){
+  state.sugAttempts = 0;
+  sugHistory = [];
+  sugPage    = -1;
+  updateSugNav();
+}
 
-// ── UTILITAIRES ───────────────────────────────────────────────────
-const g=id=>document.getElementById(id);
-const norm=s=>(s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-const toggleOn=id=>!!g(id)?.checked;
-function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));g(id)?.classList.add('active');window.scrollTo({top:0,behavior:'smooth'});}
-function setText(id,v){const e=g(id);if(e)e.textContent=v??'';}
-function setErr(id,show,text=''){const e=g(id);if(!e)return;if(text)e.textContent=text;e.classList.toggle('show',!!show);}
-function setInpErr(id,show){const e=g(id);if(e)e.classList.toggle('err',!!show);}
+function updateSugNav(){
+  const btnNext = g('btn-regen-sug');
+  const btnPrev = g('btn-prev-sug');
+  const counter = g('sug-counter');
+  const row     = g('sug-regen-row');
+  if(!row) return;
+
+  const total   = sugHistory.length;
+  const current = sugPage + 1; // affichage 1-based
+
+  if(counter) counter.textContent = total > 0 ? current + ' / ' + total : '';
+
+  // Bouton suivant : désactivé si on a atteint la limite ET qu'on est sur la dernière page
+  if(btnNext){
+    const canGenMore = state.sugAttempts < MAX_SUG_ATTEMPTS;
+    const onLastPage = sugPage >= sugHistory.length - 1;
+    btnNext.disabled = !canGenMore && onLastPage;
+    btnNext.textContent = onLastPage ? '✦ Autres suggestions' : '→ Suivant';
+    btnNext.title = btnNext.disabled ? 'Limite atteinte' : '';
+  }
+
+  // Bouton précédent : visible seulement si on a un historique
+  if(btnPrev){
+    btnPrev.style.display = sugPage > 0 ? 'inline-block' : 'none';
+  }
+}
+
+async function renderSuggestions(occasion){
+  const box = g('suggestions-box');
+  if(!box) return;
+  if(!occasion || occasion === 'Autre'){ box.style.display = 'none'; return; }
+
+  resetSugAttempts();
+
+  // Afficher un spinner pendant la génération IA
+  const list = g('suggestions-list');
+  if(list) list.innerHTML = '<div style="font-size:.72rem;color:var(--text-d);font-style:italic;padding:.5rem 0;">✦ génération en cours…</div>';
+  box.style.display = 'block';
+
+  const prenom = g('recipient-name')?.value?.trim() || '';
+  const ai = await fetchSuggestionsIA(occasion, prenom);
+  state.sugAttempts++;
+
+  const items = ai || SUGGESTIONS[occasion] || [];
+
+  if(items.length){
+    sugHistory = [items];
+    sugPage    = 0;
+    renderFromList(items);
+  } else {
+    if(list) list.innerHTML = '<div style="font-size:.72rem;color:var(--text-d);">Impossible de générer des suggestions. Réessayez ou écrivez directement votre message.</div>';
+  }
+  updateSugNav();
+}
+
+function renderFromList(items){
+  const box  = g('suggestions-box');
+  const list = g('suggestions-list');
+  const row  = g('sug-regen-row');
+  if(!box || !list || !items?.length) return;
+
+  list.innerHTML = '';
+  items.forEach(txt => {
+    const div = document.createElement('div'); div.className = 'sug-item';
+    const cb  = document.createElement('input'); cb.type = 'checkbox'; cb.dataset.text = txt;
+    const sp  = document.createElement('span'); sp.textContent = txt;
+    div.appendChild(cb); div.appendChild(sp);
+    cb.addEventListener('change', applySuggestions);
+    sp.addEventListener('click', () => { cb.checked = !cb.checked; applySuggestions(); });
+    list.appendChild(div);
+  });
+  box.style.display = 'block';
+  if(row) row.style.display = 'flex';
+  updateSugNav();
+}
+
+function applySuggestions(){
+  const sel = Array.from(document.querySelectorAll('#suggestions-list input:checked')).map(cb => cb.dataset.text);
+  if(!sel.length) return;
+  const ta = g('message-input');
+  ta.value = sel.join('\n\n');
+  setText('char-count', String(ta.value.length));
+  if(!toggleOn('tog-message')){
+    g('tog-message').checked = true;
+    g('body-message')?.classList.add('open');
+    g('block-message')?.classList.add('on');
+  }
+}
+
+// Bouton "← Précédent" — revenir à la page précédente de l'historique
+function prevSuggestions(){
+  if(sugPage <= 0) return;
+  sugPage--;
+  renderFromList(sugHistory[sugPage]);
+}
+
+// Bouton "Autres suggestions →" — générer ou avancer dans l'historique
+async function regenSuggestions(){
+  const spinner = g('sug-spinner');
+  const btnNext = g('btn-regen-sug');
+
+  // Si on n'est pas sur la dernière page → avancer dans l'historique
+  if(sugPage < sugHistory.length - 1){
+    sugPage++;
+    renderFromList(sugHistory[sugPage]);
+    return;
+  }
+
+  // On est sur la dernière page : générer de nouvelles suggestions
+  if(state.sugAttempts >= MAX_SUG_ATTEMPTS) return;
+
+  if(btnNext)  btnNext.disabled = true;
+  if(spinner)  spinner.style.display = 'inline';
+
+  const occasion = state.currentOccasion === 'Autre'
+    ? (g('autre-text')?.value?.trim() || 'Autre')
+    : state.currentOccasion;
+  const prenom = g('recipient-name')?.value?.trim() || '';
+
+  const ai = await fetchSuggestionsIA(occasion, prenom);
+  if(spinner) spinner.style.display = 'none';
+
+  if(ai){
+    // Nouvelles suggestions IA → ajouter à l'historique
+    state.sugAttempts++;
+    sugHistory.push(ai);
+    sugPage = sugHistory.length - 1;
+    renderFromList(ai);
+  } else {
+    // Fallback : variation des suggestions statiques
+    state.sugAttempts++;
+    const base    = SUGGESTIONS[occasion] || [];
+    const shuffled = [...base].sort(() => Math.random() - 0.5);
+    if(shuffled.length){
+      sugHistory.push(shuffled);
+      sugPage = sugHistory.length - 1;
+      renderFromList(shuffled);
+    }
+  }
+  updateSugNav();
+}
 
 
-// ── QR CODE ───────────────────────────────────────────────────────
 
-// ── CONFETTI ──────────────────────────────────────────────────────
-function launchConfetti(){const c=g('confetti');if(!c)return;c.innerHTML='';for(let i=0;i<30;i++){const p=document.createElement('div');p.className='cp';p.style.cssText='left:'+Math.random()*100+'vw;animation-duration:'+(Math.random()*2+1.5)+'s;animation-delay:'+(Math.random()*.8)+'s;width:'+(Math.random()*6+4)+'px;height:'+(Math.random()*6+4)+'px;background:'+(Math.random()>.5?'#8B6914':'#C8BAA0')+';border-radius:'+(Math.random()>.5?'50%':'0')+';';c.appendChild(p);}setTimeout(()=>{c.innerHTML='';},4000);}
-
-// ── IA ÉTYMOLOGIE ─────────────────────────────────────────────────
+// ── FONCTIONS IA — appels vers le backend ─────────────────────────
 async function fetchEtymIA(prenom){
   const key = (prenom||'').toLowerCase().trim();
   if(state.cachedEtym[key]) return state.cachedEtym[key];
@@ -470,13 +635,11 @@ async function fetchEtymIA(prenom){
       return d.etymologyText;
     }
   } catch(_) {}
-  // Fallback genré si serveur inaccessible
+  // Fallback genré
   const g2 = detectGenre(prenom);
-  if(g2==='masculin') return prenom + ' porte en lui la force tranquille de ceux qui savent qui ils sont.\n\nIl avance avec une clarté rare — celle des hommes qui ne cherchent plus à prouver, mais à créer.\n\nPorte-le. Il te va bien.';
-  if(g2==='feminin')  return prenom + ' porte en lui la grâce de celles qui ont su traverser les tempêtes sans perdre leur lumière.\n\nElle incarne une douceur qui ne capitule pas, une élégance qui vient de l\'intérieur.\n\nPorte-le. Il te ressemble.';
-  return prenom + ' porte en lui quelque chose de rare — une énergie singulière qui appartient à ceux qui osent être vraiment eux-mêmes.\n\nC\'est un prénom qui laisse une trace.\n\nPorte-le. Il te ressemble.';
+  if(g2==='M') return prenom + ' porte en lui la force tranquille de ceux qui savent qui ils sont.\n\nIl avance avec une clarté rare — celle des hommes qui ne cherchent plus à prouver, mais à créer.\n\nPorte-le. Il te va bien.';
+  return prenom + ' porte en lui la grâce de celles qui ont su traverser les tempêtes sans perdre leur lumière.\n\nElle incarne une douceur qui ne capitule pas, une élégance qui vient de l\'intérieur.\n\nPorte-le. Il te ressemble.';
 }
-
 
 async function fetchMotivIA(prenom, occasion, msg){
   try {
@@ -492,14 +655,15 @@ async function fetchMotivIA(prenom, occasion, msg){
     const d = await r.json();
     if (d.motivationText) return d.motivationText;
   } catch(_) {}
-  return "Porter ce bijou, c'est porter un morceau de l'âme de quelqu'un qui croit en toi.\n\nN'oublie pas qui tu es.";
+  const g2 = detectGenre(prenom);
+  if(g2==='M') return "Porter ce bijou, c\'est porter un morceau de l\'âme de quelqu\'un qui croit en toi.\n\nN\'oublie pas qui tu es.";
+  return "Porter ce bijou, c\'est porter un morceau de l\'âme de quelqu\'un qui croit en toi.\n\nN\'oublie pas qui tu es.";
 }
-
 
 async function fetchSuggestionsIA(occasion, prenom){
   try {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 15000); // 15s — réveille Render
+    const t = setTimeout(() => ctrl.abort(), 15000);
     const r = await fetch(RENDER_URL + '/generate-suggestions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -513,264 +677,143 @@ async function fetchSuggestionsIA(occasion, prenom){
   return null;
 }
 
-
-// ── SUGGESTIONS AFFICHAGE ─────────────────────────────────────────
-const MAX_SUG_ATTEMPTS = 3;
-
-function resetSugAttempts(){
-  state.sugAttempts = 0;
-  updateRegenBtn();
-}
-
-function updateRegenBtn(){
-  const btn     = g('btn-regen-sug');
-  const counter = g('sug-counter');
-  const row     = g('sug-regen-row');
-  if(!btn||!counter||!row) return;
-  const remaining = MAX_SUG_ATTEMPTS - state.sugAttempts;
-  counter.textContent = state.sugAttempts + ' / ' + MAX_SUG_ATTEMPTS;
-  btn.disabled = remaining <= 0;
-  btn.title    = remaining <= 0 ? 'Limite atteinte' : 'Générer 3 nouvelles suggestions';
-}
-
-async function renderSuggestions(occasion){
-  const box=g('suggestions-box'), list=g('suggestions-list');
-  if(!box||!list) return;
-  if(!occasion || occasion==='Autre'){ box.style.display='none'; return; }
-
-  // Afficher fallback immédiatement
-  const fallback = SUGGESTIONS[occasion];
-  if(fallback) renderFromList(fallback, false);
-  else box.style.display='none';
-
-  // Charger IA en parallèle
-  const prenom = g('recipient-name')?.value?.trim()||'';
-  state.sugAttempts++;
-  updateRegenBtn();
-  const ai = await fetchSuggestionsIA(occasion, prenom);
-  if(ai) renderFromList(ai, false);
-}
-
-function renderFromList(items, isRegen){
-  const box=g('suggestions-box'), list=g('suggestions-list'), row=g('sug-regen-row');
-  if(!box||!list||!items?.length){ if(box)box.style.display='none'; return; }
-  list.innerHTML='';
-  items.forEach(txt=>{
-    const div=document.createElement('div'); div.className='sug-item';
-    const cb=document.createElement('input'); cb.type='checkbox'; cb.dataset.text=txt;
-    const sp=document.createElement('span'); sp.textContent=txt;
-    div.appendChild(cb); div.appendChild(sp);
-    cb.addEventListener('change', applySuggestions);
-    sp.addEventListener('click',()=>{ cb.checked=!cb.checked; applySuggestions(); });
-    list.appendChild(div);
-  });
-  box.style.display='block';
-  if(row){ row.style.display='flex'; updateRegenBtn(); }
-}
-
-function applySuggestions(){
-  const sel=Array.from(document.querySelectorAll('#suggestions-list input:checked')).map(cb=>cb.dataset.text);
-  if(!sel.length) return;
-  const ta=g('message-input'); ta.value=sel.join('\n\n'); setText('char-count',String(ta.value.length));
-  if(!toggleOn('tog-message')){
-    g('tog-message').checked=true;
-    g('body-message')?.classList.add('open');
-    g('block-message')?.classList.add('on');
-  }
-}
-
-// Listener "Générer à nouveau"
-async function regenSuggestions(){
-  if(state.sugAttempts >= MAX_SUG_ATTEMPTS) return;
-  const btn=g('btn-regen-sug'), spinner=g('sug-spinner');
-  btn.disabled=true;
-  if(spinner) spinner.style.display='inline';
-  const occasion = state.currentOccasion==='Autre'
-    ? (g('autre-text')?.value?.trim()||'Autre')
-    : state.currentOccasion;
-  const prenom = g('recipient-name')?.value?.trim()||'';
-
-  // Incrémenter seulement si on obtient un vrai résultat
-  const ai = await fetchSuggestionsIA(occasion, prenom);
-  if(spinner) spinner.style.display='none';
-
-  if(ai){
-    state.sugAttempts++;
-    updateRegenBtn();
-    renderFromList(ai, true);
-  } else {
-    // IA indisponible : proposer un fallback alternatif mélangé
-    state.sugAttempts++;
-    updateRegenBtn();
-    // Fallback varié : on puise dans plusieurs occasions similaires pour ne pas répéter
-    const fallbackPool = [
-      ...(SUGGESTIONS[occasion] || []),
-      ...(SUGGESTIONS['Encouragement'] || []),
-      ...(SUGGESTIONS['Souvenir'] || [])
-    ];
-    const unique = [...new Map(fallbackPool.map(s=>[s,s])).values()];
-    const shuffled = unique.sort(() => Math.random() - 0.5).slice(0,3);
-    if(shuffled.length) renderFromList(shuffled, true);
-    btn.disabled = state.sugAttempts >= MAX_SUG_ATTEMPTS;
-  }
-}
 // ── ÉTAPE 1 : VALIDER LE CODE CLIENT ─────────────────────────────
 g('btn-validate-code')?.addEventListener('click', validateClientCode);
-g('client-code-input')?.addEventListener('keydown', e => { if(e.key==='Enter')validateClientCode(); });
+g('client-code-input')?.addEventListener('keydown', e => { if(e.key==='Enter') validateClientCode(); });
 
 async function validateClientCode(){
   const code = (g('client-code-input').value||'').replace(/\s/g,'').toUpperCase();
-  if(!code){setErr('err-code-box',true,'Veuillez saisir votre code confidentiel.');setInpErr('client-code-input',true);return;}
-  setErr('err-code-box',false);setInpErr('client-code-input',false);
-  const btn=g('btn-validate-code');btn.disabled=true;btn.textContent='VÉRIFICATION…';
+  if(!code){ setErr('err-code-box',true,'Veuillez saisir votre code confidentiel.'); setInpErr('client-code-input',true); return; }
+  setErr('err-code-box',false); setInpErr('client-code-input',false);
+  const btn=g('btn-validate-code'); btn.disabled=true; btn.textContent='VÉRIFICATION…';
   try{
     const resp=await fetch(RENDER_URL+'/validate-client-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientCode:code})});
     const data=await resp.json();
-    if(!resp.ok)throw new Error(data.message||'Code invalide.');
+    if(!resp.ok) throw new Error(data.message||'Code invalide.');
     state.clientCode=code;
     state.orderNumber=data.orderNumber||'';
     state.codeIndex=data.codeIndex||1;
-    // Afficher le numéro de commande et le code dans le formulaire
-    const od=g('form-order-display');if(od)od.textContent=state.orderNumber;
-    const cd=g('form-code-display');if(cd)cd.textContent=state.clientCode;
+    const od=g('form-order-display'); if(od) od.textContent=state.orderNumber;
+    const cd=g('form-code-display');  if(cd) cd.textContent=state.clientCode;
     showPage('page-form');
   }catch(err){
     setErr('err-code-box',true,err.message||'Code incorrect. Vérifiez votre code confidentiel et réessayez.');
     setInpErr('client-code-input',true);
-  }finally{btn.disabled=false;btn.textContent='Accéder au formulaire →';}
+  }finally{ btn.disabled=false; btn.textContent='Accéder au formulaire →'; }
 }
-
-
 
 // ── APERÇU ────────────────────────────────────────────────────────
 g('btn-preview')?.addEventListener('click', buildPreview);
 async function buildPreview(){
-  const recipient=g('recipient-name').value.trim();
-  const rgpd=g('rgpd-msg').checked;
-  const hasOcc=toggleOn('tog-occasion'),hasMsg=toggleOn('tog-message');
-  const hasEtym=toggleOn('tog-etym'),hasMotiv=toggleOn('tog-motiv');
-  const message=g('message-input').value.trim();
-  let ok=true;
-  setErr('err-recipient',!recipient);setInpErr('recipient-name',!recipient);if(!recipient)ok=false;
-  setErr('err-rgpd-msg',!rgpd);if(!rgpd)ok=false;
-  if(!hasOcc&&!hasMsg&&!hasEtym&&!hasMotiv){setErr('form-error',true);ok=false;}else{setErr('form-error',false);}
-  if(hasOcc&&!state.currentOccasion){setErr('err-occasion',true);ok=false;}else{setErr('err-occasion',false);}
-  if(hasMsg&&!message){setErr('err-message',true);setInpErr('message-input',true);ok=false;}else{setErr('err-message',false);setInpErr('message-input',false);}
-  if(!ok)return;
+  const recipient = g('recipient-name').value.trim();
+  const rgpd      = g('rgpd-msg').checked;
+  const hasOcc    = toggleOn('tog-occasion');
+  const hasMsg    = toggleOn('tog-message');
+  const hasEtym   = toggleOn('tog-etym');
+  const hasMotiv  = toggleOn('tog-motiv');
+  const message   = g('message-input').value.trim();
+  let ok = true;
 
-  const occasion=hasOcc?(state.currentOccasion==='Autre'?(g('autre-text').value.trim()||'Autre'):state.currentOccasion):'';
-  const btn=g('btn-preview');btn.disabled=true;btn.textContent='PRÉPARATION…';
+  setErr('err-recipient',!recipient); setInpErr('recipient-name',!recipient); if(!recipient) ok=false;
+  setErr('err-rgpd-msg',!rgpd); if(!rgpd) ok=false;
+  if(!hasOcc&&!hasMsg&&!hasEtym&&!hasMotiv){ setErr('form-error',true); ok=false; }else{ setErr('form-error',false); }
+  if(hasOcc&&!state.currentOccasion){ setErr('err-occasion',true); ok=false; }else{ setErr('err-occasion',false); }
+  if(hasMsg&&!message){ setErr('err-message',true); setInpErr('message-input',true); ok=false; }else{ setErr('err-message',false); setInpErr('message-input',false); }
+  if(!ok) return;
+
+  const occasion = hasOcc ? (state.currentOccasion==='Autre'?(g('autre-text').value.trim()||'Autre'):state.currentOccasion) : '';
+  const btn = g('btn-preview'); btn.disabled=true; btn.textContent='PRÉPARATION…';
   g('prev-loading').classList.add('show');
   ['prev-etym','prev-msg-block','prev-motiv-block'].forEach(id=>g(id).style.display='none');
   g('preview-overlay').classList.add('show');
-  setText('prev-name',recipient);
-  if(occasion){setText('prev-occasion',occasion);g('prev-occ-wrap').style.display='block';}
+  setText('prev-name', recipient);
+  if(occasion){ setText('prev-occasion',occasion); g('prev-occ-wrap').style.display='block'; }
   else g('prev-occ-wrap').style.display='none';
   setText('prev-from','— De la part de');
+
   try{
-    let etymologyText=null,motivationText=null;
-    if(hasEtym)etymologyText=await fetchEtymIA(recipient);
-    if(hasMotiv)motivationText=await fetchMotivIA(recipient,occasion,hasMsg?message:null);
-    state.preview={recipient,occasion,etymologyText,personalMessage:hasMsg?message:null,motivationText,senderLine:'— ALNAÉ Confidente'};
-    if(etymologyText){setText('prev-etym-text',etymologyText);g('prev-etym').style.display='block';}
-    if(hasMsg&&message){setText('prev-message',message);g('prev-msg-block').style.display='block';}
-    if(motivationText){setText('prev-motiv-text',motivationText);g('prev-motiv-block').style.display='block';}
-  }catch(err){g('preview-overlay').classList.remove('show');setErr('form-error',true,err.message||'Erreur lors de la préparation.');}
-  finally{g('prev-loading').classList.remove('show');btn.disabled=false;btn.textContent='👁 PRÉVISUALISER MON MESSAGE';}
+    let etymologyText=null, motivationText=null;
+    if(hasEtym)  etymologyText  = await fetchEtymIA(recipient);
+    if(hasMotiv) motivationText = await fetchMotivIA(recipient, occasion, hasMsg?message:null);
+    state.preview = { recipient, occasion, etymologyText, personalMessage:hasMsg?message:null, motivationText, senderLine:'— ALNAÉ Confidente' };
+    if(etymologyText){ setText('prev-etym-text',etymologyText); g('prev-etym').style.display='block'; }
+    if(hasMsg&&message){ setText('prev-message',message); g('prev-msg-block').style.display='block'; }
+    if(motivationText){ setText('prev-motiv-text',motivationText); g('prev-motiv-block').style.display='block'; }
+  }catch(err){
+    g('preview-overlay').classList.remove('show');
+    setErr('form-error',true,err.message||'Erreur lors de la préparation.');
+  }finally{
+    g('prev-loading').classList.remove('show');
+    btn.disabled=false; btn.textContent='👁 PRÉVISUALISER MON MESSAGE';
+  }
 }
 
-function closePreview(){g('preview-overlay').classList.remove('show');}
+function closePreview(){ g('preview-overlay').classList.remove('show'); }
 
-// ── RETOUR ACCUEIL — réinitialise tout pour un nouveau message ────
+// ── RETOUR ACCUEIL ────────────────────────────────────────────────
 function resetToAccueil(){
-  // Réinitialiser l'état
   state.clientCode=''; state.orderNumber=''; state.codeIndex=1;
   state.currentOccasion=''; state.sugAttempts=0;
+  sugHistory=[]; sugPage=-1;
   state.preview=null; state.messageRecord=null; state.cachedEtym={};
-
-  // Réinitialiser les champs
   const fields=['client-code-input','recipient-name','message-input','autre-text'];
-  fields.forEach(id=>{ const el=g(id); if(el)el.value=''; });
-
-  // Réinitialiser les toggles
-  ['tog-occasion','tog-message','tog-etym','tog-motiv'].forEach(id=>{
-    const el=g(id); if(el)el.checked=false;
-  });
-  ['body-occasion','body-message','body-etym','body-motiv'].forEach(id=>{
-    const el=g(id); if(el)el.classList.remove('open');
-  });
-  ['block-occasion','block-message','block-etym','block-motiv'].forEach(id=>{
-    const el=g(id); if(el)el.classList.remove('on');
-  });
-
-  // Réinitialiser les pills
+  fields.forEach(id=>{ const el=g(id); if(el) el.value=''; });
+  ['tog-occasion','tog-message','tog-etym','tog-motiv'].forEach(id=>{ const el=g(id); if(el) el.checked=false; });
+  ['body-occasion','body-message','body-etym','body-motiv'].forEach(id=>{ const el=g(id); if(el) el.classList.remove('open'); });
+  ['block-occasion','block-message','block-etym','block-motiv'].forEach(id=>{ const el=g(id); if(el) el.classList.remove('on'); });
   document.querySelectorAll('.pill[data-occasion]').forEach(p=>p.classList.remove('active'));
-
-  // Cacher les suggestions
-  const sb=g('suggestions-box'); if(sb)sb.style.display='none';
-  const af=g('autre-field'); if(af)af.style.display='none';
-
-  // Réinitialiser le compteur suggestions
-  const sc=g('sug-counter'); if(sc)sc.textContent='0 / 3';
-  const rr=g('sug-regen-row'); if(rr)rr.style.display='none';
-
-  // Réinitialiser le char count
+  const sb=g('suggestions-box'); if(sb) sb.style.display='none';
+  const af=g('autre-field');     if(af) af.style.display='none';
+  const sc=g('sug-counter');     if(sc) sc.textContent='';
+  const rr=g('sug-regen-row');   if(rr) rr.style.display='none';
   setText('char-count','0');
-
-  // Retourner à la page de saisie du code
   showPage('page-code');
 }
-g('btn-close-preview')?.addEventListener('click',closePreview);
-g('btn-back-edit')?.addEventListener('click',closePreview);
-g('preview-overlay')?.addEventListener('click',e=>{if(e.target===g('preview-overlay'))closePreview();});
+
+g('btn-close-preview')?.addEventListener('click', closePreview);
+g('btn-back-edit')?.addEventListener('click', closePreview);
+g('preview-overlay')?.addEventListener('click', e=>{ if(e.target===g('preview-overlay')) closePreview(); });
 
 // ── SCELLEMENT ────────────────────────────────────────────────────
 g('btn-confirm-seal')?.addEventListener('click', sealMessage);
 async function sealMessage(){
-  if(!state.preview)return;
-  const btn=g('btn-confirm-seal');btn.disabled=true;btn.textContent='SCELLEMENT…';
+  if(!state.preview) return;
+  const btn=g('btn-confirm-seal'); btn.disabled=true; btn.textContent='SCELLEMENT…';
   try{
-    // Le code client IS le code bijou — 1 seul code
     const jewelCode = state.clientCode;
-
-    const body={
-      clientCode:state.clientCode,
-      pin:state.clientCode,  // Le code client EST le code de révélation
+    const body = {
+      clientCode:      state.clientCode,
+      pin:             state.clientCode,
       jewelCode,
-      recipientName:state.preview.recipient,
-      occasion:state.preview.occasion||null,
-      personalMessage:state.preview.personalMessage||null,
-      etymologyText:state.preview.etymologyText||null,
-      motivationText:state.preview.motivationText||null,
-      senderLine:state.preview.senderLine
+      recipientName:   state.preview.recipient,
+      occasion:        state.preview.occasion||null,
+      personalMessage: state.preview.personalMessage||null,
+      etymologyText:   state.preview.etymologyText||null,
+      motivationText:  state.preview.motivationText||null,
+      senderLine:      state.preview.senderLine
     };
-
-    const resp=await fetch(RENDER_URL+'/seal-message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const data=await resp.json();
-    if(!resp.ok)throw new Error(data.message||'Erreur lors du scellement.');
-
-    const revealUrl=REVEAL_PAGE+'?code='+encodeURIComponent(jewelCode);
-    state.messageRecord={jewelCode,revealUrl,...state.preview};
-
-    // Afficher la carte
-    closePreview();launchConfetti();showPage('page-success');
-
+    const resp = await fetch(RENDER_URL+'/seal-message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const data = await resp.json();
+    if(!resp.ok) throw new Error(data.message||'Erreur lors du scellement.');
+    const revealUrl = REVEAL_PAGE+'?code='+encodeURIComponent(jewelCode);
+    state.messageRecord = { jewelCode, revealUrl, ...state.preview };
+    closePreview(); launchConfetti(); showPage('page-success');
   }catch(err){
-    const el=g('form-error');if(el){el.textContent=err.message||'Erreur lors du scellement.';el.classList.add('show');}
+    const el=g('form-error'); if(el){ el.textContent=err.message||'Erreur lors du scellement.'; el.classList.add('show'); }
     closePreview();
-  }finally{btn.disabled=false;btn.textContent='✦ CONFIRMER ET SCELLER';}
+  }finally{ btn.disabled=false; btn.textContent='✦ CONFIRMER ET SCELLER'; }
 }
 
 // ── INIT ──────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function(){
   // Occasions
   document.querySelectorAll('.pill[data-occasion]').forEach(pill=>{
-    pill.addEventListener('click',function(){
+    pill.addEventListener('click', function(){
       document.querySelectorAll('.pill[data-occasion]').forEach(p=>p.classList.remove('active'));
       this.classList.add('active');
-      state.currentOccasion=this.dataset.occasion||'';
-      setErr('err-occasion',false);
-      g('autre-field').style.display=state.currentOccasion==='Autre'?'block':'none';
+      state.currentOccasion = this.dataset.occasion||'';
+      setErr('err-occasion', false);
+      g('autre-field').style.display = state.currentOccasion==='Autre' ? 'block' : 'none';
       resetSugAttempts();
       renderSuggestions(state.currentOccasion);
     });
@@ -780,29 +823,31 @@ document.addEventListener('DOMContentLoaded', function(){
   [['tog-occasion','body-occasion','block-occasion'],
    ['tog-message','body-message','block-message'],
    ['tog-etym','body-etym','block-etym'],
-   ['tog-motiv','body-motiv','block-motiv']].forEach(([tid,bid,blid])=>{
-    g(tid)?.addEventListener('change',function(){
-      g(bid)?.classList.toggle('open',this.checked);
-      g(blid)?.classList.toggle('on',this.checked);
+   ['tog-motiv','body-motiv','block-motiv']
+  ].forEach(([tid,bid,blid])=>{
+    g(tid)?.addEventListener('change', function(){
+      g(bid)?.classList.toggle('open', this.checked);
+      g(blid)?.classList.toggle('on',  this.checked);
     });
   });
 
   // Compteur caractères
-  g('message-input')?.addEventListener('input',function(){setText('char-count',String(this.value.length));});
+  g('message-input')?.addEventListener('input', function(){ setText('char-count', String(this.value.length)); });
 
-  // Bouton "Générer à nouveau" pour les suggestions
+  // Boutons navigation suggestions
   g('btn-regen-sug')?.addEventListener('click', regenSuggestions);
+  g('btn-prev-sug')?.addEventListener('click',  prevSuggestions);
 
   // Bouton retour accueil
   g('btn-retour-accueil')?.addEventListener('click', resetToAccueil);
 
   // RGPD toggle label
-  g('lbl-rgpd-msg')?.addEventListener('click',()=>{const cb=g('rgpd-msg');if(cb)cb.checked=!cb.checked;});
+  g('lbl-rgpd-msg')?.addEventListener('click', ()=>{ const cb=g('rgpd-msg'); if(cb) cb.checked=!cb.checked; });
 
-  // Pré-remplir code depuis URL (?code=CL-XXXX)
-  const params=new URLSearchParams(window.location.search);
-  const codeParam=params.get('code');
-  if(codeParam)g('client-code-input').value=codeParam.toUpperCase();
+  // Pré-remplir code depuis URL
+  const params    = new URLSearchParams(window.location.search);
+  const codeParam = params.get('code');
+  if(codeParam) g('client-code-input').value = codeParam.toUpperCase();
 });
 
 })();
