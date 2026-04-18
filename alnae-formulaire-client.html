@@ -419,203 +419,7 @@ const state = {
 
 
 // ── GENRES ────────────────────────────────────────────────────────
-const PRENOMS_M = new Set([
-  "aaron","adam","adrien","alexandre","alexis","arnaud","arthur","axel","baptiste",
-  "benjamin","charles","christophe","clement","corentin","damien","daniel","david",
-  "edouard","emmanuel","ethan","etienne","felix","florian","francois","gabriel",
-  "gabin","guillaume","hugo","jean","jeremy","jerome","julien","kevin","kylian",
-  "laurent","leon","luca","lucas","leo","loic","louis","luka","mael","marc","martin",
-  "mathieu","mathis","maxime","maxence","mehdi","michael","michel","nathan","nicolas",
-  "noah","noel","nolan","olivier","oscar","paul","philippe","pierre","raphael","remi",
-  "robin","romain","ruben","samuel","sebastien","simon","stephane","tanguy","theo",
-  "thibault","thierry","thomas","timothee","tom","tristan","ugo","valentin","victor",
-  "vincent","william","xavier","yann","yannick"
-]);
-const PRENOMS_F = new Set([
-  "fabienne","corinne","nathalie","stephanie","virginie","audrey","veronique",
-  "florence","laurence","beatrice","sylvie","nadege","jennifer","solene","vivienne",
-  "dorothee","genevieve","frederique","pascale","michele","danielle","christelle",
-  "murielle","gabrielle","isabelle","joelle","rachelle","noelle","lisette","colette",
-  "henriette","claudette","annette","juliette","violette","marguerite","brigitte",
-  "charlotte","lydie","laetitia","leonie","clementine","josephine","delphine",
-  "perrine","charline","marjorie","eloise","heloise","melanie","tiffany","margot"
-]);
-function detectGenre(p){
-  if(!p) return 'F';
-  const s = p.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').split(/[\s-]/)[0];
-  if(PRENOMS_M.has(s)) return 'M';
-  if(PRENOMS_F.has(s)) return 'F';
-  const l4=s.slice(-4), l3=s.slice(-3), l2=s.slice(-2), l1=s.slice(-1);
-  if(["enne","inne","onne","agne"].includes(l4)) return 'F';
-  if(["lie","nie","rie","vie","fie","gie","tie","ice","ace","nce","nse","que","gue","ney","rey","ley"].includes(l3)) return 'F';
-  if(["ine","ene","ale","lle","tte","ise","ose","ane","elle"].includes(l3)) return 'F';
-  if(["ia","ea","na","la","ra","sa","ga","da","fa","ka","ma"].includes(l2)) return 'F';
-  if(l1==='a' && s.length>3) return 'F';
-  if(["ard","ert","aud"].includes(l3)) return 'M';
-  if(["el","en","on","an","in","us","ix","ex"].includes(l2)) return 'M';
-  if(l1==='o' && s.length>3) return 'M';
-  return 'F'; // par défaut féminin plutôt que neutre — évite "porte en lui" pour des prénoms inconnus
-}
-// ── SUGGESTIONS — avec historique et navigation ───────────────────
-const MAX_SUG_ATTEMPTS = 3;
 
-// Historique des pages de suggestions déjà générées
-// permet de revenir en arrière
-let sugHistory = [];  // tableau de tableaux : [[page1], [page2], [page3]]
-let sugPage    = -1;  // index courant dans sugHistory
-
-function resetSugAttempts(){
-  state.sugAttempts = 0;
-  sugHistory = [];
-  sugPage    = -1;
-  updateSugNav();
-}
-
-function updateSugNav(){
-  const btnNext = g('btn-regen-sug');
-  const btnPrev = g('btn-prev-sug');
-  const counter = g('sug-counter');
-  const row     = g('sug-regen-row');
-  if(!row) return;
-
-  const total   = sugHistory.length;
-  const current = sugPage + 1; // affichage 1-based
-
-  if(counter) counter.textContent = total > 0 ? current + ' / ' + total : '';
-
-  // Bouton suivant : désactivé si on a atteint la limite ET qu'on est sur la dernière page
-  if(btnNext){
-    const canGenMore = state.sugAttempts < MAX_SUG_ATTEMPTS;
-    const onLastPage = sugPage >= sugHistory.length - 1;
-    btnNext.disabled = !canGenMore && onLastPage;
-    btnNext.textContent = onLastPage ? '✦ Autres suggestions' : '→ Suivant';
-    btnNext.title = btnNext.disabled ? 'Limite atteinte' : '';
-  }
-
-  // Bouton précédent : visible seulement si on a un historique
-  if(btnPrev){
-    btnPrev.style.display = sugPage > 0 ? 'inline-block' : 'none';
-  }
-}
-
-async function renderSuggestions(occasion){
-  const box = g('suggestions-box');
-  if(!box) return;
-  if(!occasion || occasion === 'Autre'){ box.style.display = 'none'; return; }
-
-  resetSugAttempts();
-
-  // Afficher un spinner pendant la génération IA
-  const list = g('suggestions-list');
-  if(list) list.innerHTML = '<div style="font-size:.72rem;color:var(--text-d);font-style:italic;padding:.5rem 0;">✦ génération en cours…</div>';
-  box.style.display = 'block';
-
-  const prenom = g('recipient-name')?.value?.trim() || '';
-  const ai = await fetchSuggestionsIA(occasion, prenom);
-  state.sugAttempts++;
-
-  const items = ai || SUGGESTIONS[occasion] || [];
-
-  if(items.length){
-    sugHistory = [items];
-    sugPage    = 0;
-    renderFromList(items);
-  } else {
-    if(list) list.innerHTML = '<div style="font-size:.72rem;color:var(--text-d);">Impossible de générer des suggestions. Réessayez ou écrivez directement votre message.</div>';
-  }
-  updateSugNav();
-}
-
-function renderFromList(items){
-  const box  = g('suggestions-box');
-  const list = g('suggestions-list');
-  const row  = g('sug-regen-row');
-  if(!box || !list || !items?.length) return;
-
-  list.innerHTML = '';
-  items.forEach(txt => {
-    const div = document.createElement('div'); div.className = 'sug-item';
-    const cb  = document.createElement('input'); cb.type = 'checkbox'; cb.dataset.text = txt;
-    const sp  = document.createElement('span'); sp.textContent = txt;
-    div.appendChild(cb); div.appendChild(sp);
-    cb.addEventListener('change', applySuggestions);
-    sp.addEventListener('click', () => { cb.checked = !cb.checked; applySuggestions(); });
-    list.appendChild(div);
-  });
-  box.style.display = 'block';
-  if(row) row.style.display = 'flex';
-  updateSugNav();
-}
-
-function applySuggestions(){
-  const sel = Array.from(document.querySelectorAll('#suggestions-list input:checked')).map(cb => cb.dataset.text);
-  if(!sel.length) return;
-  const ta = g('message-input');
-  ta.value = sel.join('\n\n');
-  setText('char-count', String(ta.value.length));
-  if(!toggleOn('tog-message')){
-    g('tog-message').checked = true;
-    g('body-message')?.classList.add('open');
-    g('block-message')?.classList.add('on');
-  }
-}
-
-// Bouton "← Précédent" — revenir à la page précédente de l'historique
-function prevSuggestions(){
-  if(sugPage <= 0) return;
-  sugPage--;
-  renderFromList(sugHistory[sugPage]);
-}
-
-// Bouton "Autres suggestions →" — générer ou avancer dans l'historique
-async function regenSuggestions(){
-  const spinner = g('sug-spinner');
-  const btnNext = g('btn-regen-sug');
-
-  // Si on n'est pas sur la dernière page → avancer dans l'historique
-  if(sugPage < sugHistory.length - 1){
-    sugPage++;
-    renderFromList(sugHistory[sugPage]);
-    return;
-  }
-
-  // On est sur la dernière page : générer de nouvelles suggestions
-  if(state.sugAttempts >= MAX_SUG_ATTEMPTS) return;
-
-  if(btnNext)  btnNext.disabled = true;
-  if(spinner)  spinner.style.display = 'inline';
-
-  const occasion = state.currentOccasion === 'Autre'
-    ? (g('autre-text')?.value?.trim() || 'Autre')
-    : state.currentOccasion;
-  const prenom = g('recipient-name')?.value?.trim() || '';
-
-  const ai = await fetchSuggestionsIA(occasion, prenom);
-  if(spinner) spinner.style.display = 'none';
-
-  if(ai){
-    // Nouvelles suggestions IA → ajouter à l'historique
-    state.sugAttempts++;
-    sugHistory.push(ai);
-    sugPage = sugHistory.length - 1;
-    renderFromList(ai);
-  } else {
-    // Fallback : variation des suggestions statiques
-    state.sugAttempts++;
-    const base    = SUGGESTIONS[occasion] || [];
-    const shuffled = [...base].sort(() => Math.random() - 0.5);
-    if(shuffled.length){
-      sugHistory.push(shuffled);
-      sugPage = sugHistory.length - 1;
-      renderFromList(shuffled);
-    }
-  }
-  updateSugNav();
-}
-
-
-
-// ── FONCTIONS IA — appels vers le backend ─────────────────────────
 async function fetchEtymIA(prenom){
   const key = (prenom||'').toLowerCase().trim();
   if(state.cachedEtym[key]) return state.cachedEtym[key];
@@ -635,11 +439,14 @@ async function fetchEtymIA(prenom){
       return d.etymologyText;
     }
   } catch(_) {}
-  // Fallback genré
-  const g2 = detectGenre(prenom);
-  if(g2==='M') return prenom + ' porte en lui la force tranquille de ceux qui savent qui ils sont.\n\nIl avance avec une clarté rare — celle des hommes qui ne cherchent plus à prouver, mais à créer.\n\nPorte-le. Il te va bien.';
-  return prenom + ' porte en lui la grâce de celles qui ont su traverser les tempêtes sans perdre leur lumière.\n\nElle incarne une douceur qui ne capitule pas, une élégance qui vient de l\'intérieur.\n\nPorte-le. Il te ressemble.';
+  // Fallback neutre — jamais genré, jamais "porte en lui/elle"
+  return `${prenom} porte en lui une lumière singulière — celle des êtres qui savent, sans avoir besoin de le dire, qui ils sont vraiment.
+
+Tu es de ceux qui laissent une trace dans les mémoires.
+
+Porte ce bijou. Il te ressemble.`;
 }
+
 
 async function fetchMotivIA(prenom, occasion, msg){
   try {
@@ -655,10 +462,10 @@ async function fetchMotivIA(prenom, occasion, msg){
     const d = await r.json();
     if (d.motivationText) return d.motivationText;
   } catch(_) {}
-  const g2 = detectGenre(prenom);
-  if(g2==='M') return "Porter ce bijou, c\'est porter un morceau de l\'âme de quelqu\'un qui croit en toi.\n\nN\'oublie pas qui tu es.";
-  return "Porter ce bijou, c\'est porter un morceau de l\'âme de quelqu\'un qui croit en toi.\n\nN\'oublie pas qui tu es.";
+  // Fallback neutre
+  return "Ce bijou est un morceau d\'âme offert avec intention.\n\nIl porte en lui tout ce que les mots n\'arrivent pas toujours à dire.\n\nN\'oublie pas qui tu es.";
 }
+
 
 async function fetchSuggestionsIA(occasion, prenom){
   try {
