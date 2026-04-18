@@ -192,6 +192,15 @@ function detectGenre(prenom) {
   // Liste masculine explicite
   const prenomsMasculins = new Set([
     "aaron","adam","adrien","alexandre","alexis","arnaud","arthur","axel","baptiste",
+    "benjamin","charles","christophe","clement","damien","daniel","david","edouard",
+    "emmanuel","ethan","etienne","felix","florian","francois","gabriel","gabin",
+    "guillaume","hugo","jean","jeremy","jerome","julien","kevin","kylian","laurent",
+    "leon","luca","lucas","leo","loic","louis","luka","mael","marc","martin",
+    "mathieu","mathis","maxime","maxence","mehdi","michael","michel","nathan",
+    "nicolas","noah","noel","nolan","olivier","oscar","paul","philippe","pierre",
+    "raphael","remi","robin","romain","ruben","samuel","sebastien","simon",
+    "stephane","tanguy","theo","thibault","thierry","thomas","timothee","tom",
+    "tristan","ugo","valentin","victor","vincent","william","xavier","yann"
     "benjamin","charles","christophe","clement","corentin","damien","daniel","david",
     "edouard","emmanuel","ethan","etienne","felix","florian","francois","gabriel",
     "gabin","gautier","gilbert","guillaume","hugo","jean","jeremy","jerome","julien",
@@ -226,6 +235,8 @@ function detectGenre(prenom) {
     .split(/[\s-]/)[0];
 
   if (prenomsMasculins.has(p)) return "masculin";
+  // Heuristiques
+  const l3=p.slice(-3), l2=p.slice(-2), l1=p.slice(-1);
   if (prenomsFeminins.has(p))  return "feminin";
 
   // Heuristiques terminaisons — ordre : du plus spécifique au plus général
@@ -239,13 +250,16 @@ function detectGenre(prenom) {
   if (["que","gue"].includes(l3)) return "feminin"; // Véronique, Monique
   if (["ney","rey","ley"].includes(l3)) return "feminin"; // Audrey, Courtney, Ashley
   if (["ine","ene","ale","lle","tte","ise","ose","ane","elle"].includes(l3)) return "feminin";
+  if (["ia","ea","na","la","ra","sa"].includes(l2)) return "feminin";
   if (["ia","ea","na","la","ra","sa","ga","da","fa","ka","ma"].includes(l2)) return "feminin";
   if (l1==="a" && p.length>3) return "feminin";
+  if (["el","en","on","an","in","us"].includes(l2)) return "masculin";
 
   // Terminaisons masculines
   if (["ard","ert","aud","aux","eux","oux"].includes(l3)) return "masculin";
   if (["el","en","on","an","in","us","ix","ex"].includes(l2)) return "masculin";
   if (l1==="o" && p.length>3) return "masculin";
+  return "neutre"; // si incertain → formulation neutre
 
   return "neutre";
 }
